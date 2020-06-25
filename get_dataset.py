@@ -7,6 +7,7 @@ import torch.backends.cudnn as cudnn
 import torchvision
 import torchvision.transforms as transforms
 import os
+from torchvision.datasets import FashionMNIST
 
 from Custom_datasets.DataDiverseMultiMNIST import DiverseMultiMNIST
 from Custom_datasets.DataMNIST import SimpleMNIST
@@ -90,13 +91,46 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
         num_class=10
         image_dim_size = 40
 
+    elif name == 'FashionMNIST':
+        print("Applying Fashion-MNIST transforms")
+        """Load fashionmnist dataset. The data is divided by 255 and subracted by mean and divided by standard deviation.
+        """
+        DATAPATH = "../data/FashionMNIST/"
+        train_loaders_desc = []
+        test_loaders_desc = []
+        for (translation,rotation) in train_translation_rotation_list:
+            print("Augment train set with translation ", translation, " Rotation ", rotation)
+            train_transform = transforms.Compose([
+                                            transforms.RandomAffine(rotation,translation),
+                                            transforms.Grayscale(3),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,), (0.5,)),
+                                            ])
+            
+            training_set = FashionMNIST(DATAPATH, train=True, download=True, transform=train_transform)
+        
+        for (translation,rotation) in test_translation_rotation_list:
+            print("Augment test set with translation ", translation, " Rotation ", rotation)
+            test_transform = transforms.Compose([
+                                            transforms.RandomAffine(rotation,translation),
+                                            transforms.Grayscale(3),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5,), (0.5,)),
+                                            ])
+            testing_set = FashionMNIST(DATAPATH, train=False, download=True, transform=test_transform)  
+        num_class=10
+        image_dim_size = 28
+        return training_set, testing_set, num_class, image_dim_size
+
+
+
+
+
     elif name == 'Expanded_AffNISTv2':
 
         DATAPATH = "../data/AffineTest/"
         # train_translation_rotation_list = [((0.15,0.15))]#,((0.075,0.075),30),((0.075,0.075),60),((0.075,0.075),90),((0.075,0.075),180)]
         # test_translation_rotation_list = [((0,0),0)]
-        train_loaders_desc = []
-        test_loaders_desc = []
         for (translation,rotation) in train_translation_rotation_list:
             print("Augment train set with translation ", translation, " Rotation ", rotation)
             train_desc = 'train_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)+'_'+'MNIST'#for identifying in logs 
@@ -122,4 +156,31 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
         image_dim_size = 40
         # testing_data_loader = DataLoader(testing_set, batch_size=batch_size, shuffle=True)
 
+    elif name == 'SVHN':
+        DATAPATH = "../data/SVHN/"
+        train_loaders_desc = []
+        test_loaders_desc = []
+        for (translation,rotation) in train_translation_rotation_list:
+            train_desc = 'train_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)+'_'+'SVHN'#for identifying in logs 
+            train_transform = transforms.Compose([
+                                            transforms.RandomAffine(rotation,translation,(0.9,1.1)),
+                                            transforms.Grayscale(3),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                                            ])
+            training_set = SVHN(DATAPATH, split='train', download=False, transform=train_transform)
+        
+        for (translation,rotation) in test_translation_rotation_list:
+            test_desc = 'test_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)+'_'+'SVHN'#for identifying in logs  
+            test_transform = transforms.Compose([
+                                            #transforms.Resize(31),
+                                            transforms.RandomAffine(rotation,translation),
+                                            transforms.Grayscale(3),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                                            ])
+            testing_set = SVHN(DATAPATH, split='test', download=False, transform=test_transform)  
+
+        num_class = 10
+        image_dim_size = 32
     return trainset, testset, num_class, image_dim_size
