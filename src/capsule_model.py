@@ -51,7 +51,7 @@ class CapsModel(nn.Module):
                                             params['backbone']['padding'])
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
-            if dataset == 'CIFAR10' or dataset == 'CIFAR100' or "NIST" in dataset:
+            if dataset == 'CIFAR10' or dataset == 'CIFAR100' or "NIST" in dataset or dataset == 'SVHN':
               print("Using standard ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
@@ -252,7 +252,7 @@ class CapsSAModel(nn.Module):
                                             params['backbone']['padding'])
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
-            if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset:
+            if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
@@ -440,7 +440,7 @@ class CapsBAModel(nn.Module):
                                             params['backbone']['padding'])
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
-            if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset:
+            if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],

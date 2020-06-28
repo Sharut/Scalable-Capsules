@@ -1011,8 +1011,6 @@ class BilinearRouting(nn.Module):
     def forward(self, current_pose, h_out=1, w_out=1, next_pose=None):
         
         # current pose: (b,32,3,3,7,7,16)
-        # if FC current pose is (b, numcaps*h_in*w_in, caps_dim)
-        # print("Inital Current pose: ", current_pose.shape)
         if next_pose is None:
             # ist iteration
             batch_size = current_pose.shape[0]
@@ -1041,21 +1039,17 @@ class BilinearRouting(nn.Module):
             w_next = w_next.unsqueeze(0)
 
             current_pose = current_pose.reshape(batch_size*h_out*w_out, self.kernel_size*self.kernel_size*self.in_n_capsules, self.pose_dim)#view error
-            # print("Inital Current pose1: ", current_pose.shape)
-
+            
             if self.matrix_pose:
                 # (b*7*7, 3*3*32, 4, 4) = (49b, 288, 4, 4)
                 # print(current_pose.shape)
                 current_pose = current_pose.reshape(batch_size*h_out*w_out, self.kernel_size*self.kernel_size*self.in_n_capsules, self.matrix_pose_dim, self.matrix_pose_dim)#replace the 2 reshapes
             else:
-                current_pose = current_pose.unsqueeze(2) # (49b,288,1,16)
-                # print("Inital Current pose2: ", current_pose.shape)
+                current_pose = current_pose.unsqueeze(2)
             
             # Multiplying p{L} by C_{L} to change to c_{L}
             # Current pose: (49b, 288, 4, 4), w_current = (1, 288, 4, 4)
             # Same matrix for the entire batch, output  = (49b, 288, 4, 4)
-            # print("Before bilinear Current pose: ", current_pose.shape)
-            # print("W current: ", w_current.shape)
             current_pose = torch.matmul(current_pose, w_current) 
             
             if self.matrix_pose:
@@ -1100,7 +1094,6 @@ class BilinearRouting(nn.Module):
 
         else:
             # 2nd to T iterations
-            # print("Inital Current pose: ", current_pose.shape)
             batch_size = next_pose.shape[0]
             if self.layer_type=='conv':
                 # Current_pose = (b,7,7,32,3,3,16)
@@ -1135,7 +1128,7 @@ class BilinearRouting(nn.Module):
                 current_pose = current_pose.reshape(batch_size*h_out*w_out, self.kernel_size*self.kernel_size*self.in_n_capsules, self.matrix_pose_dim, self.matrix_pose_dim)#replace the 2 reshapes
             else:
                 current_pose = current_pose.unsqueeze(2)
-
+            
             # Tranformed currentlayer capsules to c_{L}
             # Multiply (49b, 288, 4, 4) with (1,288,4,4) --> (49b, 288, 4, 4)
             current_pose = torch.matmul(current_pose, w_current)
@@ -1153,7 +1146,7 @@ class BilinearRouting(nn.Module):
                 # next_pose = (49b,m,16)  -->  (49b,m,4,4) 
                 next_pose = next_pose.reshape(batch_size*h_out*w_out, self.out_n_capsules,  self.matrix_pose_dim, self.matrix_pose_dim)
             else:
-                next_pose = next_pose.unsqueeze(3) # (49b, m, 16, 1)
+                next_pose = next_pose.unsqueeze(3)
             
             # Tranform next pose using N_{L}: w_next = (49b,m,4,4) * (1,m,4,4)
             next_pose = torch.matmul(w_next, next_pose)
@@ -1163,7 +1156,6 @@ class BilinearRouting(nn.Module):
                 # next_pose = (49b,m,16)
                 next_pose = next_pose.view(batch_size*h_out*w_out, self.out_n_capsules,  self.pose_dim)
             else:
-                # (49b, m, 16, 1) --> (49b,m,16)
                 next_pose = next_pose.squeeze(3)
     
             # Finding scaled alignment scores between updated buckets
@@ -1187,8 +1179,7 @@ class BilinearRouting(nn.Module):
             
             # Multiplied with N_{j} to get final pose
             # w_next: (49b,m,4,4); b_next_pose_candidates: (49b,m , 4, 4)
-            # print(next_pose_candidates.shape, w_next.shape)
-            next_pose_candidates = torch.matmul(w_next, next_pose_candidates)
+            next_pose_candidates = torch.matmul(next_pose_candidates, w_next)
             
             # next_pose_candidates = (b,7,7,m,16)
             next_pose_candidates = next_pose_candidates.view(batch_size, h_out, w_out, self.out_n_capsules,  self.pose_dim)

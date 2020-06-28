@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
-from .bilinear_sparse_routing_invert import BilinearSparseRouting
+from .bilinear_sparse_routing_invert import BilinearSparseRouting,BilinearVectorRouting, BilinearRouting, DynamicBilinearRouting
 #### Simple Backbone ####
 class simple_backbone(nn.Module):
     def __init__(self, cl_input_channels,cl_num_filters,cl_filter_size, 
@@ -524,4 +524,356 @@ class SACapsuleCONV(nn.Module):
         if not next_capsule_value.shape[-1] == 1:
             next_capsule_value = self.nonlinear_act(next_capsule_value)                
         return next_capsule_value        
+
+
+
+#### Capsule Layers with the proposed bilinear routing without sinkhorn - Ablation study ####
+class BACapsuleFC(nn.Module):
+    r"""Applies as a capsule fully-connected layer.
+    TBD
+    """
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+        super(BACapsuleFC, self).__init__()
+        self.in_n_capsules = in_n_capsules
+        self.in_d_capsules = in_d_capsules
+        self.out_n_capsules = out_n_capsules
+        self.out_d_capsules = out_d_capsules
+        self.matrix_pose = matrix_pose
+        self.dropout_rate = dp
+        self.nonlinear_act = nn.LayerNorm(out_d_capsules)
+        self.drop = nn.Dropout(self.dropout_rate)
+        self.scale = 1. / (out_d_capsules ** 0.5)
+
+        self.bilinear_attn = BilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
+                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     temperature = 0.75,
+                                                    non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
+                                                    use_simple_sort_net = False)
+
+    
+    def extra_repr(self):
+        return 'in_n_capsules={}, in_d_capsules={}, out_n_capsules={}, out_d_capsules={}, matrix_pose={}, \
+            dropout_rate={}'.format(
+            self.in_n_capsules, self.in_d_capsules, self.out_n_capsules, self.out_d_capsules, self.matrix_pose,
+            self.dropout_rate
+        )        
+    def forward(self, input, num_iter, next_capsule_value=None):
+        # b: batch size
+        # n: num of capsules in current layer
+        # a: dim of capsules in current layer
+        # m: num of capsules in next layer
+        # d: dim of capsules in next layer
+        if len(input.shape) == 5:
+            input = input.permute(0, 4, 1, 2, 3)
+            input = input.contiguous().view(input.shape[0], input.shape[1], -1)
+            input = input.permute(0,2,1)
+
+
+        batch_size = input.shape[0]
+        next_capsule_value = self.bilinear_attn(current_pose=input, h_out=1, w_out=1, next_pose=next_capsule_value)
+        next_capsule_value = self.drop(next_capsule_value)
+        if not next_capsule_value.shape[-1] == 1:
+            next_capsule_value = self.nonlinear_act(next_capsule_value)
+        return next_capsule_value
+
+class BACapsuleCONV(nn.Module):
+    r"""Applies as a capsule convolutional layer.
+    TBD
+    """
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
+                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+        super(BACapsuleCONV, self).__init__()
+        self.in_n_capsules = in_n_capsules
+        self.in_d_capsules = in_d_capsules
+        self.out_n_capsules = out_n_capsules
+        self.out_d_capsules = out_d_capsules
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.matrix_pose = matrix_pose
+        self.coordinate_add = coordinate_add
+        self.padding = padding
+        
+        self.nonlinear_act = nn.LayerNorm(out_d_capsules)
+        self.dropout_rate = dp
+        self.drop = nn.Dropout(self.dropout_rate)
+
+        self.bilinear_attn = BilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
+                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     temperature = 0.75,
+                                                        non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
+                                                        use_simple_sort_net = False)
+
+    def extra_repr(self):
+        return 'in_n_capsules={}, in_d_capsules={}, out_n_capsules={}, out_d_capsules={}, \
+                    kernel_size={}, stride={}, coordinate_add={}, matrix_pose={},  \
+                    dropout_rate={}'.format(
+            self.in_n_capsules, self.in_d_capsules, self.out_n_capsules, self.out_d_capsules, 
+            self.kernel_size, self.stride, self.coordinate_add, self.matrix_pose, 
+            self.dropout_rate
+            )       
+             
+    def input_expansion(self, input):
+        # input has size [batch x num_of_capsule x height x width x  x capsule_dimension]
+        if self.padding:
+            input = input.permute([0,1,4,2,3]) #For padding h,w
+            if not self.padding%1:
+                input = F.pad(input, [self.padding, self.padding, self.padding, self.padding]) #TODO: Padding to maintain same size, change so that caps dim not padded
+            else:
+                input = F.pad(input, [math.ceil(self.padding), math.floor(self.padding), math.ceil(self.padding), math.floor(self.padding)]) #TODO: Padding to maintain same size, change so that caps dim not padded
+            input = input.permute([0,1,3,4,2])
+        unfolded_input = input.unfold(2,size=self.kernel_size,step=self.stride).unfold(3,size=self.kernel_size,step=self.stride)
+        unfolded_input = unfolded_input.permute([0,1,5,6,2,3,4])
+        # output has size [batch x num_of_capsule x kernel_size x kernel_size x h_out x w_out x capsule_dimension]
+        return unfolded_input
+    
+    def forward(self, input, num_iter, next_capsule_value=None):
+        # k,l: kernel size
+        # h,w: output width and length 
+        inputs = self.input_expansion(input)
+        batch_size = inputs.shape[0]
+        h_out = inputs.shape[4]
+        w_out = inputs.shape[5] 
+        next_capsule_value = self.bilinear_attn(current_pose=inputs, h_out=h_out, w_out=w_out, next_pose=next_capsule_value)
+        next_capsule_value = self.drop(next_capsule_value)
+        if not next_capsule_value.shape[-1] == 1:
+            next_capsule_value = self.nonlinear_act(next_capsule_value)                
+        return next_capsule_value 
+
+
+
+
+#### Capsule Layers with the proposed bilinear routing without sinkhorn - ONLY VECTOR POSE ####
+class BVACapsuleFC(nn.Module):
+    r"""Applies as a capsule fully-connected layer.
+    TBD
+    """
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+        super(BVACapsuleFC, self).__init__()
+        self.in_n_capsules = in_n_capsules
+        self.in_d_capsules = in_d_capsules
+        self.out_n_capsules = out_n_capsules
+        self.out_d_capsules = out_d_capsules
+        self.matrix_pose = matrix_pose
+        self.dropout_rate = dp
+        self.nonlinear_act = nn.LayerNorm(out_d_capsules)
+        self.drop = nn.Dropout(self.dropout_rate)
+        self.scale = 1. / (out_d_capsules ** 0.5)
+
+        self.bilinear_attn = BilinearVectorRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
+                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     temperature = 0.75,
+                                                    non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
+                                                    use_simple_sort_net = False)
+
+    
+    def extra_repr(self):
+        return 'in_n_capsules={}, in_d_capsules={}, out_n_capsules={}, out_d_capsules={}, matrix_pose={}, \
+            dropout_rate={}'.format(
+            self.in_n_capsules, self.in_d_capsules, self.out_n_capsules, self.out_d_capsules, self.matrix_pose,
+            self.dropout_rate
+        )        
+    def forward(self, input, num_iter, next_capsule_value=None):
+        # b: batch size
+        # n: num of capsules in current layer
+        # a: dim of capsules in current layer
+        # m: num of capsules in next layer
+        # d: dim of capsules in next layer
+        if len(input.shape) == 5:
+            input = input.permute(0, 4, 1, 2, 3)
+            input = input.contiguous().view(input.shape[0], input.shape[1], -1)
+            input = input.permute(0,2,1)
+
+
+        batch_size = input.shape[0]
+        next_capsule_value = self.bilinear_attn(current_pose=input, h_out=1, w_out=1, next_pose=next_capsule_value)
+        next_capsule_value = self.drop(next_capsule_value)
+        if not next_capsule_value.shape[-1] == 1:
+            next_capsule_value = self.nonlinear_act(next_capsule_value)
+        return next_capsule_value
+
+class BVACapsuleCONV(nn.Module):
+    r"""Applies as a capsule convolutional layer.
+    TBD
+    """
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
+                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+        super(BVACapsuleCONV, self).__init__()
+        self.in_n_capsules = in_n_capsules
+        self.in_d_capsules = in_d_capsules
+        self.out_n_capsules = out_n_capsules
+        self.out_d_capsules = out_d_capsules
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.matrix_pose = matrix_pose
+        self.coordinate_add = coordinate_add
+        self.padding = padding
+        
+        self.nonlinear_act = nn.LayerNorm(out_d_capsules)
+        self.dropout_rate = dp
+        self.drop = nn.Dropout(self.dropout_rate)
+
+        self.bilinear_attn = BilinearVectorRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
+                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     temperature = 0.75,
+                                                        non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
+                                                        use_simple_sort_net = False)
+
+    def extra_repr(self):
+        return 'in_n_capsules={}, in_d_capsules={}, out_n_capsules={}, out_d_capsules={}, \
+                    kernel_size={}, stride={}, coordinate_add={}, matrix_pose={},  \
+                    dropout_rate={}'.format(
+            self.in_n_capsules, self.in_d_capsules, self.out_n_capsules, self.out_d_capsules, 
+            self.kernel_size, self.stride, self.coordinate_add, self.matrix_pose, 
+            self.dropout_rate
+            )       
+             
+    def input_expansion(self, input):
+        # input has size [batch x num_of_capsule x height x width x  x capsule_dimension]
+        if self.padding:
+            input = input.permute([0,1,4,2,3]) #For padding h,w
+            if not self.padding%1:
+                input = F.pad(input, [self.padding, self.padding, self.padding, self.padding]) #TODO: Padding to maintain same size, change so that caps dim not padded
+            else:
+                input = F.pad(input, [math.ceil(self.padding), math.floor(self.padding), math.ceil(self.padding), math.floor(self.padding)]) #TODO: Padding to maintain same size, change so that caps dim not padded
+            input = input.permute([0,1,3,4,2])
+        unfolded_input = input.unfold(2,size=self.kernel_size,step=self.stride).unfold(3,size=self.kernel_size,step=self.stride)
+        unfolded_input = unfolded_input.permute([0,1,5,6,2,3,4])
+        # output has size [batch x num_of_capsule x kernel_size x kernel_size x h_out x w_out x capsule_dimension]
+        return unfolded_input
+    
+    def forward(self, input, num_iter, next_capsule_value=None):
+        # k,l: kernel size
+        # h,w: output width and length 
+        inputs = self.input_expansion(input)
+        batch_size = inputs.shape[0]
+        h_out = inputs.shape[4]
+        w_out = inputs.shape[5] 
+        next_capsule_value = self.bilinear_attn(current_pose=inputs, h_out=h_out, w_out=w_out, next_pose=next_capsule_value)
+        next_capsule_value = self.drop(next_capsule_value)
+        if not next_capsule_value.shape[-1] == 1:
+            next_capsule_value = self.nonlinear_act(next_capsule_value)                
+        return next_capsule_value 
+
+
+
+
+
+
+
+
+
+
+
+
+#### Capsule Layers with the proposed bilinear routing with dynamic routing####
+class DBACapsuleFC(nn.Module):
+    r"""Applies as a capsule fully-connected layer.
+    TBD
+    """
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+        super(DBACapsuleFC, self).__init__()
+        self.in_n_capsules = in_n_capsules
+        self.in_d_capsules = in_d_capsules
+        self.out_n_capsules = out_n_capsules
+        self.out_d_capsules = out_d_capsules
+        self.matrix_pose = matrix_pose
+        self.dropout_rate = dp
+        self.nonlinear_act = nn.LayerNorm(out_d_capsules)
+        self.drop = nn.Dropout(self.dropout_rate)
+        self.scale = 1. / (out_d_capsules ** 0.5)
+
+        self.dynamicbilinear_attn = DynamicBilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
+                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     temperature = 0.75,
+                                                    non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
+                                                    use_simple_sort_net = False)
+
+    
+    def extra_repr(self):
+        return 'in_n_capsules={}, in_d_capsules={}, out_n_capsules={}, out_d_capsules={}, matrix_pose={}, \
+            dropout_rate={}'.format(
+            self.in_n_capsules, self.in_d_capsules, self.out_n_capsules, self.out_d_capsules, self.matrix_pose,
+            self.dropout_rate
+        )        
+    def forward(self, input, num_iter, dots=None):
+        # b: batch size
+        # n: num of capsules in current layer
+        # a: dim of capsules in current layer
+        # m: num of capsules in next layer
+        # d: dim of capsules in next layer
+        if len(input.shape) == 5:
+            input = input.permute(0, 4, 1, 2, 3)
+            input = input.contiguous().view(input.shape[0], input.shape[1], -1)
+            input = input.permute(0,2,1)
+
+
+        batch_size = input.shape[0]
+        dots, next_capsule_value = self.dynamicbilinear_attn(current_pose=input, h_out=1, w_out=1, dots=dots)
+        next_capsule_value = self.drop(next_capsule_value)
+        # if not next_capsule_value.shape[-1] == 1:
+        #     next_capsule_value = self.nonlinear_act(next_capsule_value)
+        return dots, next_capsule_value
+
+class DBACapsuleCONV(nn.Module):
+    r"""Applies as a capsule convolutional layer.
+    TBD
+    """
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
+                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+        super(DBACapsuleCONV, self).__init__()
+        self.in_n_capsules = in_n_capsules
+        self.in_d_capsules = in_d_capsules
+        self.out_n_capsules = out_n_capsules
+        self.out_d_capsules = out_d_capsules
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.matrix_pose = matrix_pose
+        self.coordinate_add = coordinate_add
+        self.padding = padding
+        
+        self.nonlinear_act = nn.LayerNorm(out_d_capsules)
+        self.dropout_rate = dp
+        self.drop = nn.Dropout(self.dropout_rate)
+
+        self.dynamicbilinear_attn = DynamicBilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
+                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     temperature = 0.75,
+                                                        non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
+                                                        use_simple_sort_net = False)
+
+    def extra_repr(self):
+        return 'in_n_capsules={}, in_d_capsules={}, out_n_capsules={}, out_d_capsules={}, \
+                    kernel_size={}, stride={}, coordinate_add={}, matrix_pose={},  \
+                    dropout_rate={}'.format(
+            self.in_n_capsules, self.in_d_capsules, self.out_n_capsules, self.out_d_capsules, 
+            self.kernel_size, self.stride, self.coordinate_add, self.matrix_pose, 
+            self.dropout_rate
+            )       
+             
+    def input_expansion(self, input):
+        # input has size [batch x num_of_capsule x height x width x  x capsule_dimension]
+        if self.padding:
+            input = input.permute([0,1,4,2,3]) #For padding h,w
+            if not self.padding%1:
+                input = F.pad(input, [self.padding, self.padding, self.padding, self.padding]) #TODO: Padding to maintain same size, change so that caps dim not padded
+            else:
+                input = F.pad(input, [math.ceil(self.padding), math.floor(self.padding), math.ceil(self.padding), math.floor(self.padding)]) #TODO: Padding to maintain same size, change so that caps dim not padded
+            input = input.permute([0,1,3,4,2])
+        unfolded_input = input.unfold(2,size=self.kernel_size,step=self.stride).unfold(3,size=self.kernel_size,step=self.stride)
+        unfolded_input = unfolded_input.permute([0,1,5,6,2,3,4])
+        # output has size [batch x num_of_capsule x kernel_size x kernel_size x h_out x w_out x capsule_dimension]
+        return unfolded_input
+    
+    def forward(self, input, num_iter, dots=None):
+        # k,l: kernel size
+        # h,w: output width and length 
+        inputs = self.input_expansion(input)
+        batch_size = inputs.shape[0]
+        h_out = inputs.shape[4]
+        w_out = inputs.shape[5] 
+        dots, next_capsule_value = self.dynamicbilinear_attn(current_pose=inputs, h_out=h_out, w_out=w_out, dots=dots)
+        next_capsule_value = self.drop(next_capsule_value)
+        # if not next_capsule_value.shape[-1] == 1:
+        #     next_capsule_value = self.nonlinear_act(next_capsule_value)                
+        return dots, next_capsule_value 
 
