@@ -38,7 +38,7 @@ parser.add_argument('--num_routing', default=2, type=int, help='number of routin
 parser.add_argument('--dataset', default='CIFAR100', type=str, help='dataset. CIFAR10 or CIFAR100.')
 parser.add_argument('--backbone', default='resnet', type=str, help='type of backbone. simple or resnet')
 parser.add_argument('--num_workers', default=4, type=int, help='number of workers. 0 or 2')
-parser.add_argument('--config_path', default='./configs/resnet_backbone_CIFAR100_capsdim676.json', type=str, help='path of the config')
+parser.add_argument('--config_path', default='./configs/resnet_backbone_CIFAR100_capsdim576.json', type=str, help='path of the config')
 parser.add_argument('--debug', action='store_true',
                     help='use debug mode (without saving to a directory)')
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')

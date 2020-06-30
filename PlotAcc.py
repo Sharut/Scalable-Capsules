@@ -16,7 +16,7 @@ args = parser.parse_args()
 # -
 
 # save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone 
-save_dir_name="model_bilinear_dataset_Expanded_AffNISTv2_batch_128_acc_1.0_epochs_400_optimizer_SGD_scheduler_StepLR_steps_5_gamma_0.1_num_routing_2_backbone_resnet_config_64_sequential_routing_False_augment_0.15_0.15_0"
+save_dir_name="model_bilinear_dataset_Expanded_AffNISTv2_batch_128_acc_1.0_epochs_400_optimizer_SGD_scheduler_StepLR_steps_5_gamma_0.1_num_routing_2_backbone_resnet_config_64v2_sequential_routing_False_augment_0.15_0.15_0"
 store_dir = os.path.join('results/AffNIST/', save_dir_name) 
 store_file = os.path.join(store_dir, 'debug_replica2.dct')
 with open(store_file, "rb") as fp:
@@ -33,7 +33,7 @@ plt.yticks(fontsize=12, fontweight='bold', rotation=90)
 plt.xlabel("Epoch")
 plt.tight_layout(pad=0)
 plt.legend()
-plt.title("Best Accuracy on AffNIST "+str(max(results['test_acc'])) +"%")
+plt.title("Best Accuracy "+str(max(results['test_acc'])) +"%")
 plot_save_path =os.path.join(store_dir, 'AccuracyPlot.png')
 plt.savefig(plot_save_path, bbox_inches='tight', pad_inches=0.0, dpi=300)
 plt.show()

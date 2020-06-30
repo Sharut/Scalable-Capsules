@@ -21,7 +21,7 @@ import torchvision.transforms as transforms
 import os
 import argparse
 
-from src import capsule_model
+from src import capsule_model_invert as capsule_model
 from utils import progress_bar
 import pickle
 import json
@@ -72,12 +72,11 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
 # Data
 print('==> Preparing data..')
-train_translation_rotation_list = [((0.15,0.15),0)]#,((0.075,0.075),30),((0.075,0.075),60),((0.075,0.075),90),((0.075,0.075),180)]
+train_translation_rotation_list = [((0,0),0)]#,((0.075,0.075),30),((0.075,0.075),60),((0.075,0.075),90),((0.075,0.075),180)]
 test_translation_rotation_list = [((0,0),0)]
 translation,rotation = train_translation_rotation_list[0]
 train_desc = '_augment_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)
 trainset, testset, num_class, image_dim_size = get_dataset(args.dataset, args.seed, train_translation_rotation_list, test_translation_rotation_list)
-
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.train_bs, shuffle=True, num_workers=args.num_workers)
 testloader = torch.utils.data.DataLoader(testset, batch_size=args.test_bs, shuffle=False, num_workers=args.num_workers)
@@ -152,13 +151,16 @@ else:
 lr_scheduler_name = "MultiStepLR_150_250"
 lr_decay = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250, 350], gamma=0.1)
 
-if 'NIST' in args.dataset and args.optimizer !="SGD":
-    print("Setting LR Decay for Adams on MNIST...")
+if args.optimizer !="SGD":
+    print("Setting LR Decay for Adams")
     gamma = 0.1
-    lr_scheduler_name = "Exponential_" + str(gamma)
-    lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma = gamma)
-elif 'NIST' in args.dataset and args.optimizer =="SGD":
-    print("Setting LR Decay for SGD on MNIST...")
+    lr_scheduler_name = "SovNetLambdaLR_" + str(gamma)
+    # lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma = gamma)
+    lr_decay.LambdaLR(optimizer,lambda epoch: max(1e-3,0.96**epoch))#lambda epoch: 0.5**(epoch // 10))
+
+
+elif args.optimizer =="SGD":
+    print("Setting LR Decay for SGD")
     gamma = 0.1
     step_size = 5
     lr_scheduler_name = "StepLR_steps_"+ str(step_size) + "_gamma_" + str(gamma)
@@ -166,16 +168,11 @@ elif 'NIST' in args.dataset and args.optimizer =="SGD":
 
 
 # -
-# print(net)
 def count_parameters(model):
-    ssum=0
     for name, param in model.named_parameters():
-        # if param.requires_grad:
-        if param.requires_grad and 'capsule_layer' in name:
+        if param.requires_grad:
             # .numel() returns total number of elements
             print(name, param.numel())
-            ssum += param.numel()
-    print('Caps sum ', ssum)
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
@@ -187,13 +184,14 @@ print("Total model paramters: ",total_params)
 # Get configuration info
 capsdim = args.config_path.split('capsdim')[1].split(".")[0] if 'capsdim' in args.config_path else 'normal'
 print(capsdim)
-save_dir_name = 'check_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) + train_desc
+save_dir_name = 'Invert_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) + '_lr_'+str(args.lr)+'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) + train_desc
 print(save_dir_name)
-if not os.path.isdir('results/') and not args.debug:
-    os.mkdir('results')
+if not os.path.isdir('results/'+args.dataset) and not args.debug:
+    os.mkdir('results/'+args.dataset)
+
 if not args.debug:
     # store_dir = os.path.join('results', args.save_dir+'_'+datetime.today().strftime('%Y-%m-%d-%H-%M-%S'))
-    store_dir = os.path.join('results/AffNIST/', save_dir_name)  
+    store_dir = os.path.join('results/'+args.dataset, save_dir_name)  
 if not os.path.isdir(store_dir) :  
     os.mkdir(store_dir)
 
@@ -209,7 +207,7 @@ loss_func = nn.CrossEntropyLoss()
 if args.resume_dir and not args.debug:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
-    checkpoint = torch.load(os.path.join(args.resume_dir, 'ckpt_replica2.pth'))
+    checkpoint = torch.load(os.path.join(args.resume_dir, 'ckpt.pth'))
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
@@ -279,7 +277,7 @@ def test(epoch):
                 'optimizer' : optimizer.state_dict(),
                 'epoch': epoch,
         }
-        torch.save(state, os.path.join(store_dir, 'ckpt_replica2.pth'))
+        torch.save(state, os.path.join(store_dir, 'ckpt.pth'))
         best_acc = acc
     return 100.*correct/total
 
@@ -294,7 +292,7 @@ results = {
 
 total_epochs = args.total_epochs
 if not args.debug:    
-    store_file = os.path.join(store_dir, 'debug_replica2.dct')
+    store_file = os.path.join(store_dir, 'debug.dct')
 
 for epoch in range(start_epoch, start_epoch+total_epochs):
     results['train_acc'].append(train(epoch))
