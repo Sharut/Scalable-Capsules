@@ -17,6 +17,11 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 
+# Mixup augmentation
+import numpy as np
+from torch.autograd import Variable
+
+#
 import torchvision
 import torchvision.transforms as transforms
 
@@ -47,6 +52,9 @@ parser.add_argument('--debug', action='store_true',
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')
 
 parser.add_argument('--train_bs', default=64, type=int, help='Batch Size for train')
+parser.add_argument('--mixup', default=True, type=bool, help='Mixup Augmentation')
+parser.add_argument('--mixup_alpha', default=1, type=int, help='mixup interpolation coefficient (default: 1)')
+
 parser.add_argument('--test_bs', default=100, type=int, help='Batch Size for test')
 parser.add_argument('--seed', default=12345, type=int, help='Random seed value')
 
@@ -164,7 +172,7 @@ capsdim = args.config_path.split('capsdim')[1].split(".")[0] if 'capsdim' in arg
 print(capsdim)
 
 
-save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) 
+save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing)  + '_alpha_' +str(args.mixup_alpha) + '_mixup_'+str(args.mixup)
 print(save_dir_name)
 if not os.path.isdir('results/'+args.dataset + '/CapsDim' + str(capsdim)) and not args.debug:
     os.makedirs('results/'+args.dataset + '/CapsDim' + str(capsdim))
@@ -175,6 +183,7 @@ if not os.path.isdir(store_dir) :
 
 net = net.to(device)
 if device == 'cuda':
+    use_cuda = True
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
@@ -189,12 +198,37 @@ if args.resume_dir and not args.debug:
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
+
+# Mixup Augmentation
+def mixup_data(x, y, alpha=1.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+
 # Training
 def train(epoch): 
     global accumulation_steps
     if(accumulation_steps!=1):
         print("TRAINING WITH GRADIENT ACCUMULATION")
 
+    if args.mixup == True:
+        print("Training with Mixup Augmentation")
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -205,8 +239,26 @@ def train(epoch):
         inputs = inputs.to(device)
         targets = targets.to(device)
         
-        v = net(inputs)
-        loss = loss_func(v, targets)
+        # Mixup augmentation based Training
+        if args.mixup == True:
+            inputs, targets_a, targets_b, lam = mixup_data(inputs, targets,
+                                                       args.mixup_alpha, use_cuda)
+            inputs, targets_a, targets_b = map(Variable, (inputs,
+                                                      targets_a, targets_b))
+            outputs = net(inputs)
+            loss = mixup_criterion(loss_func, outputs, targets_a, targets_b, lam)
+            _, predicted = torch.max(outputs.data, 1)
+            correct += (lam * predicted.eq(targets_a.data).cpu().sum().float()
+                    + (1 - lam) * predicted.eq(targets_b.data).cpu().sum().float())
+
+
+        else:
+            v = net(inputs)
+            loss = loss_func(v, targets)
+            _, predicted = v.max(dim=1) 
+            correct += predicted.eq(targets).sum().item()
+        
+        
         loss = loss / accumulation_steps
         loss.backward()
 
@@ -217,10 +269,8 @@ def train(epoch):
 
         # optimizer.step()
 
-        train_loss += loss.item()
-        _, predicted = v.max(dim=1)    
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
+        train_loss += loss.item()           
+        total += targets.size(0)        
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
     return 100.*correct/total
