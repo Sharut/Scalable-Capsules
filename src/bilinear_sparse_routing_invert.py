@@ -698,6 +698,7 @@ class BilinearSparseRouting(nn.Module):
             self.sort_net = AttentionSortNet(heads, self.next_bucket_size, self.current_bucket_size, self.in_d_capsules, non_permutative = non_permutative, temperature = temperature, sinkhorn_iter = sinkhorn_iter, n_sortcut = n_sortcut)
 
         self.dropout = nn.Dropout(dropout)
+        print("You are using Bilinear routing WITH sinkhorn, Inverting the inverted")
         print("using INVERTING THE INVERTED ATTENTION !!!!!!!!!!!!!!!!!!")
 
 
@@ -1000,7 +1001,7 @@ class BilinearRouting(nn.Module):
             self.sort_net = AttentionSortNet(heads, self.next_bucket_size, self.current_bucket_size, self.in_d_capsules, non_permutative = non_permutative, temperature = temperature, sinkhorn_iter = sinkhorn_iter, n_sortcut = n_sortcut)
 
         self.dropout = nn.Dropout(dropout)
-        print("You are using Bilinear routing without sinkhorn")
+        print("You are using Bilinear routing without sinkhorn, Inverting the inverted !!!!!!!!!!!!!")
 
 
     def forward(self, current_pose, h_out=1, w_out=1, next_pose=None):
@@ -1160,7 +1161,8 @@ class BilinearRouting(nn.Module):
 
             # attention routing along dim=-2 (next layer buckets)
             # Dim=-1 if you wanna invert the inverted attention
-            dots = dots.softmax(dim=-2) 
+            # print("Inverting the inverted")
+            dots = dots.softmax(dim=-1) 
             next_pose_candidates = current_pose
 
             # Yet to multiply with N_{L} (next_w)
@@ -1246,7 +1248,7 @@ class BilinearVectorRouting(nn.Module):
             self.sort_net = AttentionSortNet(heads, self.next_bucket_size, self.current_bucket_size, self.in_d_capsules, non_permutative = non_permutative, temperature = temperature, sinkhorn_iter = sinkhorn_iter, n_sortcut = n_sortcut)
 
         self.dropout = nn.Dropout(dropout)
-        print("You are using Bilinear routing without sinkhorn")
+        print("You are using Bilinear VECTOR routing without sinkhorn, Inverting the inverted !!!!!!!!!!!!!")
 
 
     def forward(self, current_pose, h_out=1, w_out=1, next_pose=None):
@@ -1414,7 +1416,8 @@ class BilinearVectorRouting(nn.Module):
 
             # attention routing along dim=-2 (next layer buckets)
             # Dim=-1 if you wanna invert the inverted attention
-            dots = dots.softmax(dim=-2) 
+            # print("Inverting the inverted")
+            dots = dots.softmax(dim=-1) 
             next_pose_candidates = current_pose
 
             # Yet to multiply with N_{L} (next_w)
@@ -1512,6 +1515,7 @@ class DynamicBilinearRouting(nn.Module):
             self.sort_net = AttentionSortNet(heads, self.next_bucket_size, self.current_bucket_size, self.in_d_capsules, non_permutative = non_permutative, temperature = temperature, sinkhorn_iter = sinkhorn_iter, n_sortcut = n_sortcut)
 
         self.dropout = nn.Dropout(dropout)
+        print("You are using DYNAMIC routing, Inverting the inverted !!!!!!!!!!!!!")
 
 
     def forward(self, current_pose, dots, h_out=1, w_out=1):
@@ -1567,7 +1571,8 @@ class DynamicBilinearRouting(nn.Module):
         if dots is None:
             dots=(torch.zeros(batch_size*h_out*w_out, self.out_n_capsules, self.kernel_size*self.kernel_size*self.in_n_capsules)* (pose_dim ** -0.5)).type_as(current_pose).to(current_pose)
         
-        dots = dots.softmax(dim=-2)
+        # print("Inverting the inverted")
+        dots = dots.softmax(dim=-1)
         next_pose = current_pose 
 
         # multiply with N_{L} 
