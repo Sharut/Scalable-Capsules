@@ -2,105 +2,94 @@ import random
 import torch
 import numpy as np
 from torchvision import datasets
+from PIL import Image
+from matplotlib import pyplot as plt
 
 random.seed(4)
 np.random.seed(4)
 torch.manual_seed(4)
+import torchvision.transforms as transforms
 
 class DiverseMultiMNIST(datasets.MNIST):
 
-    def __init__(self, pad, shift, num_pairs, root, train, transformation=None):
-        super(SimpleMNIST, self).__init__(root, train, download=True)
+    def __init__(self, root, train, transformation):
+        super(DiverseMultiMNIST, self).__init__(root, train, download=True) 
         
         # Can be train/test based on bool value of train
-        dataset = datasets.MNIST(root=root, train=train, download=True)
-        self.pad = pad
-        self.shift=shift
+        dataset = datasets.MNIST(root=root, train=train, transform = None, download=True)
         self.mnist_data = dataset.data
         self.mnist_labels = dataset.targets
         self.transform = transformation
         self.classes = list(range(10))
-        self.num_pairs=num_pairs
+
         print('Dataset Length is ', len(dataset.data))
         print("Classes: ", self.classes)
 
+        # Generate label specific data  
+        dict_indices_labels = {}
+        for label in range(10):
+            total_list = self.mnist_labels==torch.Tensor([label])
+            res_list = list(filter(lambda x: total_list[x] == True, range(len(total_list)))) 
+            dict_indices_labels[label] =  res_list
+        self.dict_indices_labels = dict_indices_labels
 
     def __getitem__(self, index):
+
+        img, label = self.mnist_data[index].numpy(), int(self.mnist_labels[index])
+        img_pil = Image.fromarray(img, mode='L')
         
-        img, label = self.mnist_data[index], self.mnist_labels[index]
-        np_img = img.numpy()
-        random_shifts = np.random.randint(-self.shift, self.shift + 1,2)
-        padded_image = np.pad(np_img, self.pad, 'constant')
-        base_shifted = shift_2d(padded_image, random_shifts, shift)
+        # Convert to 36*36 By shifting and padding
+        img = np.array(self.transform(img_pil)).astype(np.uint8)
 
+        output_label = [0]*10
+        train_transform = transforms.Compose([transforms.Grayscale(3),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.1307,), (0.3081,)),
+                                            ])
         
-
-
-
-        for i in np.arange(-self.shift, self.shift + 1):
-            for j in np.arange(-self.shift, self.shift + 1):
-                image_raw = shift_2d(padded_image, (i, j), self.shift)   
-        if image_raw.ndim==2:
-            image_raw = image_raw.reshape(image_raw.shape[0], image_raw.shape[1], 1)
-        tensor_img = TF.to_tensor(image_raw)
-        tensor_img = tensor_img.repeat(3, 1, 1)
-        return tensor_img, label
-
-
-
-
-
-
-
-
-
-
-    def __getitem__(self, index):
         
-
-        # Should be 36X36 due to padding
-        img, label = self.mnist_data[index], self.mnist_labels[index]
         decision = np.random.choice(['SingleDigit', 'OverlappingDigit'], 1, p=[0.167, 0.833])
-        print("decision: ", decision)
-        if decision == 'SingleDigit':
-            img, label = self.mnist_data[index], self.mnist_labels[index]
-            if self.transform != None:
-                img = self.transform(img)
-            return img, label
+        if decision[0] == 'SingleDigit':
+            img = Image.fromarray(img, mode='L')
+            output_label[label] = 1
+            img  = train_transform(img) 
+            output_label = torch.tensor(output_label, dtype=torch.float32)
+            return img, output_label
         else:
+            
+            
             # Choose two classes at random
-            new_list = self.classes[0,int(label)]+ self.classes[int(label)+1,:]
-            print(new_list)
+
+            new_list = self.classes[0:label]+ self.classes[label+1:]
             digit_class = random.sample(new_list, 1)
-            print("Chosen class:", digit_classes, " original: ", label)
-
-            # Find all images corresonding to that class
-            data = self.mnist_data[self.mnist_labels==digit_class]            
-            second_img = data[int(np.random.choice(data.shape[0], 1)), :, :]
+            assert (digit_class[0] != label), "Overlapping images have same label"
+            # data = self.mnist_data[self.mnist_labels==torch.Tensor(digit_class)]
             
+            second_img = self.mnist_data[int(np.random.choice(self.dict_indices_labels[digit_class[0]], 1))].numpy()
+            second_img_pil = Image.fromarray(second_img, mode='L')
             
-            return img, label
+            # Convert to 36*36 By shifting and padding
+            second_img = np.array(self.transform(second_img_pil)).astype(np.uint8)
+            
+            # Overlay 
+            merged = np.add(img, second_img, dtype=np.int32)
+            merged = np.minimum(merged, 255).astype(np.uint8)
+            
+            # Output label
+            output_label[digit_class[0]]=1
+            output_label[label]=1
+            # print(digit_class[0], label, output_label)
+            # plt.imshow(merged, cmap='gray')
+            # import os
+            # os.chdir("/data/2015P002510/Sharut/MSR/ScalableCapsules/CIFAR100/Custom_datasets/")
+            # plt.savefig("./check/"+str(index)+".png", dpi=200)
+            # plt.close("all")
 
-
-
-def shift_2d(image, shift, max_shift):
-  """Shifts the image along each axis by introducing zero.
-  Args:
-    image: A 2D numpy array to be shifted.
-    shift: A tuple indicating the shift along each axis.
-    max_shift: The maximum possible shift.
-  Returns:
-    A 2D numpy array with the same shape of image.
-  """
-  max_shift += 1
-  padded_image = np.pad(image, max_shift, 'constant')
-  rolled_image = np.roll(padded_image, shift[0], axis=0)
-  rolled_image = np.roll(rolled_image, shift[1], axis=1)
-  shifted_image = rolled_image
-  # shifted_image = rolled_image[max_shift:-max_shift, max_shift:-max_shift]
-  return shifted_image
-
-
+            # Final Transform 
+            img = Image.fromarray(merged, mode='L')
+            img  = train_transform(img)
+            output_label = torch.tensor(output_label, dtype=torch.float32)
+            return img, output_label
 
 
      
