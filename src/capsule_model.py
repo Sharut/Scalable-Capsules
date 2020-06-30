@@ -398,6 +398,7 @@ class CapsSAModel(nn.Module):
         out = capsule_values[-1]
         # print("out shape, ", out.shape)
         out = self.final_fc(out) # fixed classifier for all capsules
+        # print("helo ", out.shape)
         # print("classifier shape, ", out.shape)
         out = out.squeeze(1) # fixed classifier for all capsules
         out = out.squeeze(2)
