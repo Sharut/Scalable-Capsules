@@ -31,10 +31,18 @@
             "num_caps": 32,
             "caps_dim": 64,
             "kernel_size": 3,
-            "stride": 2,
+            "stride": 1,
             "matrix_pose": true,
-            "out_img_size": 3
+            "out_img_size": 5
+        },
+        {
+
+            "type": "FC",
+            "num_caps": 10,
+            "caps_dim": 64,
+            "matrix_pose": true
         }
+
     ],
     "class_capsules": {
             "num_caps": 10,
