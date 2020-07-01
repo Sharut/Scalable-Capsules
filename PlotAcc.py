@@ -16,9 +16,9 @@ args = parser.parse_args()
 # -
 
 # save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone 
-save_dir_name="model_bilinear_dataset_Expanded_AffNISTv2_batch_128_acc_1.0_epochs_400_optimizer_SGD_scheduler_StepLR_steps_5_gamma_0.1_num_routing_2_backbone_resnet_config_64v2_sequential_routing_False_augment_0.15_0.15_0"
-store_dir = os.path.join('results/AffNIST/', save_dir_name) 
-store_file = os.path.join(store_dir, 'debug_replica2.dct')
+save_dir_name="NewAcc_model_sinkhorn_dataset_DiverseMultiMNIST_batch_128_acc_1.0_epochs_400_optimizer_SGD_lr_0.1_scheduler_StepLR_steps_5_gamma_0.1_num_routing_2_backbone_resnet_config_64_sequential_routing_False_augment_0.11_0.11_0"
+store_dir = os.path.join('results/DiverseMultiMNIST/', save_dir_name) 
+store_file = os.path.join(store_dir, 'debug.dct')
 with open(store_file, "rb") as fp:
 	results = pickle.load(fp)
 

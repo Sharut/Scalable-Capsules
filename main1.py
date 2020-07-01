@@ -52,7 +52,7 @@ parser.add_argument('--debug', action='store_true',
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')
 
 parser.add_argument('--train_bs', default=64, type=int, help='Batch Size for train')
-parser.add_argument('--mixup', default=True, type=bool, help='Mixup Augmentation')
+parser.add_argument('--mixup', default=False, type=bool, help='Mixup Augmentation')
 parser.add_argument('--mixup_alpha', default=1, type=int, help='mixup interpolation coefficient (default: 1)')
 
 parser.add_argument('--test_bs', default=100, type=int, help='Batch Size for test')
@@ -172,7 +172,7 @@ capsdim = args.config_path.split('capsdim')[1].split(".")[0] if 'capsdim' in arg
 print(capsdim)
 
 
-save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing)  + '_alpha_' +str(args.mixup_alpha) + '_mixup_'+str(args.mixup)
+save_dir_name = 'chkkk_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing)  + '_alpha_' +str(args.mixup_alpha) + '_mixup_'+str(args.mixup)
 print(save_dir_name)
 if not os.path.isdir('results/'+args.dataset + '/CapsDim' + str(capsdim)) and not args.debug:
     os.makedirs('results/'+args.dataset + '/CapsDim' + str(capsdim))

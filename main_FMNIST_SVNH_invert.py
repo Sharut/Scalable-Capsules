@@ -18,6 +18,7 @@ import torchvision.models as models
 import torchvision
 import torchvision.transforms as transforms
 
+import math
 import os
 import argparse
 
@@ -54,11 +55,27 @@ parser.add_argument('--weight_decay', default=5e-4, type=float, help='weight dec
 parser.add_argument('--total_epochs', default=400, type=int, help='Total epochs for training')
 parser.add_argument('--model', default='sinkhorn', type=str, help='default or sinkhorn or bilinear or DynamicBilinear or resnet18')
 parser.add_argument('--optimizer', default='SGD', type=str, help='SGD or Adams')
+parser.add_argument('--step_size', default='5', type=int, help='step size')
 
 # parser.add_argument('--save_dir', default='CIFAR10', type=str, help='dir to save results')
 
 # -
 
+def cyclical_lr(stepsize, min_lr=3e-4, max_lr=3e-3):
+
+    # Scaler: we can adapt this if we do not want the triangular CLR
+    scaler = lambda x: 1.
+
+    # Lambda function to calculate the LR
+    lr_lambda = lambda it: min_lr + (max_lr - min_lr) * relative(it, stepsize)
+
+    # Additional function to see where on the cycle we are
+    def relative(it, stepsize):
+        cycle = math.floor(1 + it / (2 * stepsize))
+        x = abs(it / stepsize - 2 * cycle + 1)
+        return max(0, (1 - x)) * scaler(cycle)
+
+    return lr_lambda
 
 args = parser.parse_args()
 assert args.num_routing > 0
@@ -74,6 +91,10 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 print('==> Preparing data..')
 train_translation_rotation_list = [((0,0),0)]#,((0.075,0.075),30),((0.075,0.075),60),((0.075,0.075),90),((0.075,0.075),180)]
 test_translation_rotation_list = [((0,0),0)]
+if args.dataset =='SVHN':
+    train_translation_rotation_list = [((0.2,0.2),0)]#,((0.075,0.075),30),((0.075,0.075),60),((0.075,0.075),90),((0.075,0.075),180)]
+    test_translation_rotation_list = [((0,0),0)]
+
 translation,rotation = train_translation_rotation_list[0]
 train_desc = '_augment_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)
 trainset, testset, num_class, image_dim_size = get_dataset(args.dataset, args.seed, train_translation_rotation_list, test_translation_rotation_list)
@@ -142,18 +163,27 @@ elif args.model=='resnet18':
 
 
 # +
-if(args.optimizer=="SGD"):
+if(args.optimizer=="SGD" or args.optimizer=="SGD_Cyclic"):
+    print("Setting Optimizer to SGD")
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
 else:
     print("Changed optimizer to Adams, Learning Rate 0.001")
     optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-07, weight_decay=0, amsgrad=False)
 
 lr_scheduler_name = "MultiStepLR_150_250"
-lr_decay = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250, 350], gamma=0.1)
+lr_decay = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250, 350], gamma=args.gamma)
 
-if args.optimizer !="SGD":
+if args.optimizer =="SGD_Cyclic":
+    print("Cyclical LR !!!")
+    lr_scheduler_name = "Cyclical"
+    step_size = 3*len(trainloader)
+    clr = cyclical_lr(step_size, min_lr=0.01, max_lr=0.2)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, [clr])
+
+
+elif args.optimizer !="SGD":
     print("Setting LR Decay for Adams")
-    gamma = 0.1
+    gamma = args.gamma
     lr_scheduler_name = "SovNetLambdaLR_" + str(gamma)
     # lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma = gamma)
     lr_decay.LambdaLR(optimizer,lambda epoch: max(1e-3,0.96**epoch))#lambda epoch: 0.5**(epoch // 10))
@@ -161,19 +191,23 @@ if args.optimizer !="SGD":
 
 elif args.optimizer =="SGD":
     print("Setting LR Decay for SGD")
-    gamma = 0.1
-    step_size = 5
+    print("HOLAAAAAAAAA")
+    gamma = args.gamma
+    step_size = args.step_size
     lr_scheduler_name = "StepLR_steps_"+ str(step_size) + "_gamma_" + str(gamma)
-    lr_decay = torch.optim.lr_scheduler.StepLR(optimizer=optimizer , step_size=5, gamma = gamma)
+    lr_decay = torch.optim.lr_scheduler.StepLR(optimizer=optimizer , step_size=step_size, gamma = gamma)
+
+
 
 
 # -
 def count_parameters(model):
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            # .numel() returns total number of elements
-            print(name, param.numel())
+    # for name, param in model.named_parameters():
+    #     if param.requires_grad:
+    #         # .numel() returns total number of elements
+    #         print(name, param.numel())
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 
 # print(net)
@@ -290,13 +324,19 @@ results = {
     'test_acc': [],
 }
 
+
+
+
 total_epochs = args.total_epochs
 if not args.debug:    
     store_file = os.path.join(store_dir, 'debug.dct')
 
+
 for epoch in range(start_epoch, start_epoch+total_epochs):
     results['train_acc'].append(train(epoch))
     lr_decay.step()
+    lr_step = optimizer.state_dict()["param_groups"][0]["lr"]
+    print("Current LR ", lr_step)
     results['test_acc'].append(test(epoch))
     pickle.dump(results, open(store_file, 'wb'))
 # -

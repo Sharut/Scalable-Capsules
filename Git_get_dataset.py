@@ -11,7 +11,7 @@ from torchvision.datasets import FashionMNIST
 from torchvision.datasets import SVHN
 
 
-from Custom_datasets.DataDiverseMultiMNIST import DiverseMultiMNIST
+from Custom_datasets.DataGitDiverseMultiMNIST import DiverseMultiMNIST
 from Custom_datasets.DataMNIST import SimpleMNIST
 from Custom_datasets.DataExpandedMNIST import ExpandedMNIST
 from Custom_datasets.DataAffNIST import AffNIST
@@ -182,7 +182,6 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
 		for (translation,rotation) in train_translation_rotation_list:
 			train_desc = 'train_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)+'_'+'SVHN'#for identifying in logs 
 			train_transform = transforms.Compose([
-											transforms.Resize(64),
 											transforms.RandomAffine(rotation,translation,(0.9,1.1)),
 											transforms.Grayscale(3),
 											transforms.ToTensor(),
@@ -193,7 +192,7 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
 		for (translation,rotation) in test_translation_rotation_list:
 			test_desc = 'test_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)+'_'+'SVHN'#for identifying in logs  
 			test_transform = transforms.Compose([
-											transforms.Resize(64),
+											#transforms.Resize(31),
 											transforms.RandomAffine(rotation,translation),
 											transforms.Grayscale(3),
 											transforms.ToTensor(),

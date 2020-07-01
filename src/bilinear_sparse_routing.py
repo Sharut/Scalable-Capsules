@@ -758,7 +758,9 @@ class BilinearSparseRouting(nn.Module):
             
             # R_{i,j} = (49b, m, 288)
             dots=(torch.ones(batch_size*h_out*w_out, self.out_n_capsules, self.kernel_size*self.kernel_size*self.in_n_capsules)* (pose_dim ** -0.5)).type_as(current_pose).to(current_pose)
+            
             dots = dots.softmax(dim=-2)
+            # print(np.unique(dots.cpu().numpy()))
             
  
             next_pose_candidates = current_pose  
@@ -1696,3 +1698,6 @@ class DynamicBilinearRouting(nn.Module):
             next_pose = next_pose.squeeze(1)
         
         return dots, next_pose
+
+
+

@@ -125,6 +125,17 @@ elif args.model=='bilinearVector':
                         args.num_routing,
                         sequential_routing=args.sequential_routing)
 
+elif args.model=='HintonDynamic':
+    print("Using Sara Sabour's Dynamic Routing")
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDRModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing)
+
 
 elif args.model=='DynamicBilinear':
     assert args.sequential_routing == True
@@ -132,6 +143,17 @@ elif args.model=='DynamicBilinear':
                         params,
                         args.dataset,
                         args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing)
+
+elif args.model=='HintonDynamic':
+    print("Using Sara Sabour's Dynamic Routing")
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDRModel(image_dim_size,
+                        params,
+                        args.dataset,
+                       args.backbone,
                         args.dp,
                         args.num_routing,
                         sequential_routing=args.sequential_routing)
@@ -150,23 +172,23 @@ else:
     print("Changed optimizer to Adams, Learning Rate 0.001")
     optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-07, weight_decay=0, amsgrad=False)
 
-lr_scheduler_name = "MultiStepLR_150_250"
-lr_decay = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250, 350], gamma=0.1)
+# lr_scheduler_name = "MultiStepLR_150_250"
+# lr_decay = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250, 350], gamma=0.1)
 
-# if args.optimizer !="SGD":
-#     print("Setting LR Decay for Adams")
-#     gamma = 0.1
-#     lr_scheduler_name = "SovNetLambdaLR_" + str(gamma)
-#     # lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma = gamma)
-#     lr_decay.LambdaLR(optimizer,lambda epoch: max(1e-3,0.96**epoch))#lambda epoch: 0.5**(epoch // 10))
+if args.optimizer !="SGD":
+    print("Setting LR Decay for Adams")
+    gamma = 0.1
+    lr_scheduler_name = "SovNetLambdaLR_" + str(gamma)
+    # lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma = gamma)
+    lr_decay.LambdaLR(optimizer,lambda epoch: max(1e-3,0.96**epoch))#lambda epoch: 0.5**(epoch // 10))
 
 
-# elif args.optimizer =="SGD":
-#     print("Setting LR Decay for SGD")
-#     gamma = 0.1
-#     step_size = 5
-#     lr_scheduler_name = "StepLR_steps_"+ str(step_size) + "_gamma_" + str(gamma)
-#     lr_decay = torch.optim.lr_scheduler.StepLR(optimizer=optimizer , step_size=5, gamma = gamma)
+elif args.optimizer == "SGD":
+    print("Setting LR Decay for SGD")
+    gamma = 0.1
+    step_size = 5
+    lr_scheduler_name = "StepLR_steps_"+ str(step_size) + "_gamma_" + str(gamma)
+    lr_decay = torch.optim.lr_scheduler.StepLR(optimizer=optimizer , step_size=5, gamma = gamma)
 
 
 # -
@@ -189,7 +211,7 @@ print("Total model paramters: ",total_params)
 # Get configuration info
 capsdim = args.config_path.split('capsdim')[1].split(".")[0] if 'capsdim' in args.config_path else 'normal'
 print(capsdim)
-save_dir_name = 'NewAcc_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) + '_lr_'+str(args.lr)+'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) + train_desc
+save_dir_name = 'CopyNewAcc_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) + '_lr_'+str(args.lr)+'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) + train_desc
 print(save_dir_name)
 if not os.path.isdir('results/'+args.dataset) and not args.debug:
     os.mkdir('results/'+args.dataset)
@@ -281,7 +303,9 @@ def test(epoch):
             predicted = torch.sigmoid(v).data > 0.5
             predicted = predicted.to(torch.float32)
             total += targets.size(0)
-            correct += f1_score(targets.to("cpu").to(torch.int).numpy() ,predicted.to("cpu").to(torch.int).numpy() , average="samples")  * inputs.size(0)
+            values_output = predicted.eq(targets).sum(dim=1)
+            correct += (values_output==10).sum()
+            # correct += f1_score(targets.to("cpu").to(torch.int).numpy() ,predicted.to("cpu").to(torch.int).numpy() , average="samples")  * inputs.size(0)
 
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                 % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
