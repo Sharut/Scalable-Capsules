@@ -155,7 +155,17 @@ elif args.model=='DynamicBilinear':
                         args.num_routing,
                         sequential_routing=args.sequential_routing)
 
-
+elif args.model=='HintonDynamic':
+    print("Using Sara Sabour's Dynamic Routing")
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDRModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing)
+    
 elif args.model=='resnet18':
     net = torchvision.models.resnet18(pretrained=True) 
     num_ftrs = net.fc.in_features
@@ -202,11 +212,16 @@ elif args.optimizer =="SGD":
 
 # -
 def count_parameters(model):
+    ssum=0
     for name, param in model.named_parameters():
-        if param.requires_grad:
+        # if param.requires_grad:
+        if param.requires_grad and 'capsule_layer' in name:
             # .numel() returns total number of elements
             print(name, param.numel())
+            ssum += param.numel()
+    print('Caps sum ', ssum)
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 
 
