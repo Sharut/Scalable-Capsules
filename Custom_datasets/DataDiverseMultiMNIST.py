@@ -28,7 +28,7 @@ class DiverseMultiMNIST(datasets.MNIST):
         # Generate label specific data  
         dict_indices_labels = {}
         for label in range(10):
-            total_list = self.mnist_labels==torch.Tensor([label])
+            total_list = self.mnist_labels==torch.Tensor([label]).long()
             res_list = list(filter(lambda x: total_list[x] == True, range(len(total_list)))) 
             dict_indices_labels[label] =  res_list
         self.dict_indices_labels = dict_indices_labels
