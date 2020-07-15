@@ -6,18 +6,15 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='Training Capsules using Inverted Dot-Product Attention Routing')
+parser.add_argument('--model', default='', type=str, help='Absolute Path of model')
 
-parser.add_argument('--num_routing', default=2, type=int, help='number of routing. Recommended: 0,1,2,3.')
-parser.add_argument('--dataset', default='AffNIST', type=str, help='dataset. CIFAR10 or CIFAR100.')
-parser.add_argument('--backbone', default='resnet', type=str, help='type of backbone. simple or resnet')
-parser.add_argument('--model', default='sinkhorn', type=str, help='default or sinkhorn')
 args = parser.parse_args()
 
 # -
 
 # save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone 
-save_dir_name="model_sinkhorn_dataset_DiverseMultiMNIST_batch_128_acc_1.0_epochs_400_optimizer_SGD_lr_0.1_scheduler_StepLR_steps_5_gamma_0.1_num_routing_2_backbone_resnet_config_64v2_sequential_routing_False_augment_0.11_0.11_0"
-store_dir = os.path.join('results/DiverseMultiMNIST/', save_dir_name) 
+save_dir_name= args.model
+store_dir = save_dir_name 
 store_file = os.path.join(store_dir, 'debug.dct')
 with open(store_file, "rb") as fp:
 	results = pickle.load(fp)

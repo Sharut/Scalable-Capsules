@@ -34,10 +34,11 @@ from get_dataset import get_dataset
 parser = argparse.ArgumentParser(description='Training Capsules using Inverted Dot-Product Attention Routing')
 
 parser.add_argument('--num_routing', default=2, type=int, help='number of routing. Recommended: 0,1,2,3.')
-parser.add_argument('--dataset', default='DiverseMultiMNIST', type=str, help='dataset. CIFAR10,CIFAR100 or MNIST')
+parser.add_argument('--dataset', default='CIFAR10', type=str, help='dataset. CIFAR10,CIFAR100 or MNIST')
 parser.add_argument('--backbone', default='resnet', type=str, help='type of backbone. simple or resnet')
 parser.add_argument('--num_workers', default=1, type=int, help='number of workers. 0 or 2')
-parser.add_argument('--config_path', default='./configs/DiverseMultiMNIST/resnet_backbone_MultiMNIST_capsdim64.json', type=str, help='path of the config')
+parser.add_argument('--config_path', default='./config_linformer/Local/CIFAR10/resnet_backbone_CIFAR10_capsdim16.json', type=str, help='path of the config')
+parser.add_argument('--kernel_transformation', action='store_true', help='not using concurrent_routing')
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')
 parser.add_argument('--seed', default=12345, type=int, help='Random seed value')
 parser.add_argument('--image_dim_size', default=32, type=int, help='image dimension')
@@ -69,7 +70,8 @@ if args.model=='default':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 elif args.model=='sinkhorn':
     net = capsule_model.CapsSAModel(image_dim_size,
                         params,
@@ -77,43 +79,61 @@ elif args.model=='sinkhorn':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='BilinearRandomInit':
+    net = capsule_model.CapsRandomInitBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 elif args.model=='bilinear':
-    print("Blinear")
     net = capsule_model.CapsBAModel(image_dim_size,
                         params,
                         args.dataset,
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
-elif args.model=='bilinearVector':
-    net = capsule_model.CapsBVAModel(image_dim_size,
+
+if args.model=='LocalLinformer':
+    net = capsule_model.CapsBilinearLocalLinformer(image_dim_size,
                         params,
                         args.dataset,
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        kernel_transformation = args.kernel_transformation,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
-
-elif args.model=='DynamicBilinear':
-    assert args.sequential_routing == True
-    net = capsule_model.CapsDBAModel(image_dim_size,
+if args.model=='MultipleLocalLinformer':
+    net = capsule_model.CapsMultipleTransformationsBilinearLocalLinformer(image_dim_size,
                         params,
                         args.dataset,
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 
-elif args.model=='resnet18':
-    net = torchvision.models.resnet18(pretrained=True) 
-    num_ftrs = net.fc.in_features
-    net.fc = nn.Linear(num_ftrs, 10)
+if args.model=='GlobalLinformer':
+    net = capsule_model.CapsBilinearGlobalLinformerModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 
 # -
@@ -140,3 +160,13 @@ inputs = torch.randn(1, 3, image_dim_size, image_dim_size)
 from torchprofile import profile_macs
 macs = profile_macs(net, inputs)
 print(macs)
+
+from thop import profile
+macs1, params = profile(net, inputs=(inputs,))
+print(macs1)
+
+# with torch.autograd.profiler.profile(use_cuda = True) as prof:
+#     out = net(inputs)
+# print(prof.key_averages().table(sort_by="cuda_time_total"))
+
+

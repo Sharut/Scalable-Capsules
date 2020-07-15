@@ -49,6 +49,9 @@ parser.add_argument('--seed', default=12345, type=int, help='Random seed value')
 parser.add_argument('--accumulation_steps', default=1, type=float, help='Number of gradeitn accumulation steps')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate: 0.1 for SGD')
 parser.add_argument('--gamma', default=0.1, type=float, help='learning rate decay: 0.1')
+parser.add_argument('--step_size', default='5', type=int, help='step size')
+
+
 parser.add_argument('--dp', default=0.0, type=float, help='dropout rate')
 parser.add_argument('--weight_decay', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--total_epochs', default=400, type=int, help='Total epochs for training')
@@ -96,7 +99,8 @@ if args.model=='default':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 elif args.model=='sinkhorn':
     net = capsule_model.CapsSAModel(image_dim_size,
                         params,
@@ -104,7 +108,8 @@ elif args.model=='sinkhorn':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 elif args.model=='bilinear':
     net = capsule_model.CapsBAModel(image_dim_size,
@@ -113,7 +118,8 @@ elif args.model=='bilinear':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 elif args.model=='bilinearVector':
     net = capsule_model.CapsBVAModel(image_dim_size,
@@ -122,7 +128,8 @@ elif args.model=='bilinearVector':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 
 elif args.model=='DynamicBilinear':
@@ -133,7 +140,8 @@ elif args.model=='DynamicBilinear':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 elif args.model=='HintonDynamic':
     print("Using Sara Sabour's Dynamic Routing")
@@ -144,8 +152,28 @@ elif args.model=='HintonDynamic':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed=args.seed)
 
+if args.model=='LocalLinformer':
+    net = capsule_model.CapsBilinearLinformerUnfoldModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+if args.model=='GlobalLinformer':
+    net = capsule_model.CapsBilinearGlobalLinformerModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 
 elif args.model=='resnet18':
@@ -162,19 +190,20 @@ else:
     optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-07, weight_decay=0, amsgrad=False)
 
 lr_scheduler_name = "MultiStepLR_150_250"
-lr_decay = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250, 350], gamma=0.1)
+lr_decay = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250, 350], gamma=args.gamma)
 
 if 'NIST' in args.dataset and args.optimizer !="SGD":
     print("Setting LR Decay for Adams on MNIST...")
-    gamma = 0.1
+    gamma = args.gamma
     lr_scheduler_name = "Exponential_" + str(gamma)
     lr_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma = gamma)
+
 elif 'NIST' in args.dataset and args.optimizer =="SGD":
     print("Setting LR Decay for SGD on MNIST...")
-    gamma = 0.1
-    step_size = 5
+    gamma = args.gamma
+    step_size = args.step_size
     lr_scheduler_name = "StepLR_steps_"+ str(step_size) + "_gamma_" + str(gamma)
-    lr_decay = torch.optim.lr_scheduler.StepLR(optimizer=optimizer , step_size=5, gamma = gamma)
+    lr_decay = torch.optim.lr_scheduler.StepLR(optimizer=optimizer , step_size=step_size, gamma = gamma)
 
 
 # -
@@ -199,15 +228,27 @@ print("Total model paramters: ",total_params)
 # Get configuration info
 capsdim = args.config_path.split('capsdim')[1].split(".")[0] if 'capsdim' in args.config_path else 'normal'
 print(capsdim)
-save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) + train_desc +'_seed_'+str(args.seed)
+save_dir_name = 'model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) + '_lr_'+str(args.lr)+'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) + train_desc +'_seed_'+str(args.seed)
+
 print(save_dir_name)
-if not os.path.isdir('results/') and not args.debug:
-    os.mkdir('results')
-if not args.debug:
-    # store_dir = os.path.join('results', args.save_dir+'_'+datetime.today().strftime('%Y-%m-%d-%H-%M-%S'))
-    store_dir = os.path.join('results/AffNIST/', save_dir_name)  
-if not os.path.isdir(store_dir) :  
-    os.mkdir(store_dir)
+
+if 'Linformer' in args.model:
+    print("Linformer directory it is")
+    if not os.path.isdir('results/Linformer/'+args.dataset + '/CapsDim' + str(capsdim)) and not args.debug:
+        os.makedirs('results/Linformer/'+args.dataset + '/CapsDim' + str(capsdim))
+
+    store_dir = os.path.join('results/Linformer/'+args.dataset + '/CapsDim' + str(capsdim), save_dir_name)  
+    if not os.path.isdir(store_dir) :  
+        os.mkdir(store_dir)
+
+else:  
+    if not os.path.isdir('results/'+args.dataset + '/CapsDim' + str(capsdim)) and not args.debug:
+        os.makedirs('results/'+args.dataset + '/CapsDim' + str(capsdim))
+
+    store_dir = os.path.join('results/'+args.dataset + '/CapsDim' + str(capsdim), save_dir_name)  
+    if not os.path.isdir(store_dir) :  
+        os.mkdir(store_dir)
+
 
 # 
 net = net.to(device)
@@ -221,7 +262,7 @@ loss_func = nn.CrossEntropyLoss()
 if args.resume_dir and not args.debug:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
-    checkpoint = torch.load(os.path.join(args.resume_dir, 'ckpt_replica2.pth'))
+    checkpoint = torch.load(os.path.join(args.resume_dir, 'ckpt.pth'))
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
@@ -291,7 +332,7 @@ def test(epoch):
                 'optimizer' : optimizer.state_dict(),
                 'epoch': epoch,
         }
-        torch.save(state, os.path.join(store_dir, 'ckpt_replica2.pth'))
+        torch.save(state, os.path.join(store_dir, 'ckpt.pth'))
         best_acc = acc
     return 100.*correct/total
 
@@ -306,11 +347,13 @@ results = {
 
 total_epochs = args.total_epochs
 if not args.debug:    
-    store_file = os.path.join(store_dir, 'debug_replica2.dct')
+    store_file = os.path.join(store_dir, 'debug.dct')
 
 for epoch in range(start_epoch, start_epoch+total_epochs):
     results['train_acc'].append(train(epoch))
     lr_decay.step()
+    lr_step = optimizer.state_dict()["param_groups"][0]["lr"]
+    print("Current LR ", lr_step)
     results['test_acc'].append(test(epoch))
     pickle.dump(results, open(store_file, 'wb'))
 # -

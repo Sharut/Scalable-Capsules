@@ -42,6 +42,7 @@ parser.add_argument('--config_path', default='./configs/DiverseMultiMNIST/resnet
 parser.add_argument('--debug', action='store_true',
                     help='use debug mode (without saving to a directory)')
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')
+parser.add_argument('--kernel_transformation', action='store_true', help='tranform each 3*3 to 4 tranformation with local linformer')
 
 parser.add_argument('--train_bs', default=128, type=int, help='Batch Size for train')
 parser.add_argument('--test_bs', default=128, type=int, help='Batch Size for test')
@@ -90,6 +91,7 @@ print('==> Building model..')
 with open(args.config_path, 'rb') as file:
     params = json.load(file)
 
+
 if args.model=='default':
     net = capsule_model.CapsModel(image_dim_size,
                         params,
@@ -97,7 +99,8 @@ if args.model=='default':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 elif args.model=='sinkhorn':
     net = capsule_model.CapsSAModel(image_dim_size,
                         params,
@@ -105,7 +108,18 @@ elif args.model=='sinkhorn':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='BilinearRandomInit':
+    net = capsule_model.CapsRandomInitBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 elif args.model=='bilinear':
     net = capsule_model.CapsBAModel(image_dim_size,
@@ -114,16 +128,52 @@ elif args.model=='bilinear':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
-elif args.model=='bilinearVector':
-    net = capsule_model.CapsBVAModel(image_dim_size,
+elif args.model=='MultiHeadBilinear':
+    net = capsule_model.CapsMultiHeadBAModel(image_dim_size,
                         params,
                         args.dataset,
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+
+if args.model=='LocalLinformer':
+    net = capsule_model.CapsBilinearLocalLinformer(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        kernel_transformation = args.kernel_transformation,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+if args.model=='MultipleLocalLinformer':
+    net = capsule_model.CapsMultipleTransformationsBilinearLocalLinformer(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        kernel_transformation = args.kernel_transformation,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+
+if args.model=='GlobalLinformer':
+    net = capsule_model.CapsBilinearGlobalLinformerModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 elif args.model=='HintonDynamic':
     print("Using Sara Sabour's Dynamic Routing")
@@ -134,19 +184,8 @@ elif args.model=='HintonDynamic':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
-
-
-elif args.model=='DynamicBilinear':
-    assert args.sequential_routing == True
-    net = capsule_model.CapsDBAModel(image_dim_size,
-                        params,
-                        args.dataset,
-                        args.backbone,
-                        args.dp,
-                        args.num_routing,
-                        sequential_routing=args.sequential_routing)
-
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 
 
 elif args.model=='resnet18':
@@ -203,14 +242,22 @@ capsdim = args.config_path.split('capsdim')[1].split(".")[0] if 'capsdim' in arg
 print(capsdim)
 save_dir_name = 'Corrected_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) + '_lr_'+str(args.lr)+'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing) + train_desc+'_seed_'+str(args.seed)
 print(save_dir_name)
-if not os.path.isdir('results/'+args.dataset) and not args.debug:
-    os.mkdir('results/'+args.dataset)
+if 'Linformer' in args.model:
+    print("Linformer directory it is")
+    if not os.path.isdir('results/Linformer/'+args.dataset + '/CapsDim' + str(capsdim)) and not args.debug:
+        os.makedirs('results/Linformer/'+args.dataset + '/CapsDim' + str(capsdim))
 
-if not args.debug:
-    # store_dir = os.path.join('results', args.save_dir+'_'+datetime.today().strftime('%Y-%m-%d-%H-%M-%S'))
-    store_dir = os.path.join('results/'+args.dataset, save_dir_name)  
-if not os.path.isdir(store_dir) :  
-    os.mkdir(store_dir)
+    store_dir = os.path.join('results/Linformer/'+args.dataset + '/CapsDim' + str(capsdim), save_dir_name)  
+    if not os.path.isdir(store_dir) :  
+        os.mkdir(store_dir)
+
+else:  
+    if not os.path.isdir('results/'+args.dataset + '/CapsDim' + str(capsdim)) and not args.debug:
+        os.makedirs('results/'+args.dataset + '/CapsDim' + str(capsdim))
+
+    store_dir = os.path.join('results/'+args.dataset + '/CapsDim' + str(capsdim), save_dir_name)  
+    if not os.path.isdir(store_dir) :  
+        os.mkdir(store_dir)
 
 # 
 net = net.to(device)
@@ -331,7 +378,8 @@ for epoch in range(start_epoch, start_epoch+total_epochs):
     results['train_acc'].append(train(epoch))
     lr_decay.step()
     results['test_acc'].append(test(epoch))
-    print("Best accuracy: ", best_acc)
+    print("Best accuracy: ", best_acc.item())
+    print(save_dir_name)
     pickle.dump(results, open(store_file, 'wb'))
 # -
 

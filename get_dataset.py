@@ -19,7 +19,7 @@ from utils import seed_torch
 from torchvision import datasets
 from Custom_datasets.DataAffNISTv2 import AffNISTv2
 
-def get_dataset(name, seed, train_translation_rotation_list=None, test_translation_rotation_list=None):
+def get_dataset(name, seed, train_translation_rotation_list=None, test_translation_rotation_list=None, shear=None):
 	seed_torch(seed)
 
 	if 'CIFAR' in name:
@@ -179,11 +179,14 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
 		DATAPATH = "../data/SVHN/"
 		train_loaders_desc = []
 		test_loaders_desc = []
+		if shear == None:
+			print("No Scaling while Training unlike SovNet !!!!")
+		
 		for (translation,rotation) in train_translation_rotation_list:
 			train_desc = 'train_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)+'_'+'SVHN'#for identifying in logs 
 			train_transform = transforms.Compose([
-											transforms.Resize(64),
-											transforms.RandomAffine(rotation,translation,(0.9,1.1)),
+											# transforms.Resize(64),
+											transforms.RandomAffine(rotation,translation,shear),
 											transforms.Grayscale(3),
 											transforms.ToTensor(),
 											transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
@@ -193,7 +196,7 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
 		for (translation,rotation) in test_translation_rotation_list:
 			test_desc = 'test_'+str(translation[0])+'_'+str(translation[1])+'_'+str(rotation)+'_'+'SVHN'#for identifying in logs  
 			test_transform = transforms.Compose([
-											transforms.Resize(64),
+											# transforms.Resize(64),
 											transforms.RandomAffine(rotation,translation),
 											transforms.Grayscale(3),
 											transforms.ToTensor(),
