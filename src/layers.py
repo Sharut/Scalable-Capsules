@@ -15,12 +15,14 @@ import math
 
 from .bilinear_sparse_routing import BilinearSparseRouting,BilinearVectorRouting, BilinearRouting, DynamicBilinearRouting, BilinearRandomInitRouting, MultiHeadBilinearRouting
 from .linformer import LocalLinformerProjection, MithunSirLocalLinformerProjection, BilinearProjectionWithEmbeddings, MultiHeadLocalLinformerProjection
+from utils import seed_torch
 
 #### Simple Backbone ####
 class simple_backbone(nn.Module):
     def __init__(self, cl_input_channels,cl_num_filters,cl_filter_size, 
-                                  cl_stride,cl_padding):
+                                  cl_stride,cl_padding, seed):
         super(simple_backbone, self).__init__()
+        seed_torch(seed)
         self.pre_caps = nn.Sequential(
                     nn.Conv2d(in_channels=cl_input_channels,
                                     out_channels=cl_num_filters,
@@ -61,9 +63,10 @@ class BasicBlock(nn.Module):
 
 class resnet_backbone_cifar(nn.Module):
     def __init__(self, cl_input_channels, cl_num_filters,
-                 cl_stride):   
+                 cl_stride, seed):   
         super(resnet_backbone_cifar, self).__init__()
         self.in_planes = 64
+        seed_torch(seed)
         def _make_layer(block, planes, num_blocks, stride):
             strides = [stride] + [1]*(num_blocks-1)
             layers = []
@@ -92,9 +95,10 @@ class resnet_backbone_cifar(nn.Module):
 #Imagenet backbone
 class resnet_backbone_imagenet(nn.Module):
     def __init__(self, cl_input_channels, cl_num_filters,
-                 cl_stride):   
+                 cl_stride, seed):   
         super(resnet_backbone_imagenet, self).__init__()
         self.in_planes = 64
+        seed_torch(seed)
         def _make_layer(block, planes, num_blocks, stride):
             # strides = [stride] + [1]*(num_blocks-1)
             strides = [stride]*3 + [1]*(num_blocks-1)
@@ -165,8 +169,9 @@ class CapsuleFC(nn.Module):
     except that kernal size=1 everywhere. 
     '''
 
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp, seed):
         super(CapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -269,8 +274,9 @@ class CapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, matrix_pose, dp, coordinate_add=False):
+                 kernel_size, stride, matrix_pose, dp, seed, coordinate_add=False):
         super(CapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -430,8 +436,9 @@ class SACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp, seed):
         super(SACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules # This is n_caps * h_in * w_in
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -443,7 +450,7 @@ class SACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.sinhkorn_caps_attn = BilinearSparseRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     out_d_capsules=out_d_capsules, seed=seed, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
                                                      temperature = 0.75,
                                                     non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
                                                     use_simple_sort_net = False)
@@ -480,8 +487,9 @@ class SACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, matrix_pose, dp, seed, padding=None, coordinate_add=False):
         super(SACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -497,7 +505,7 @@ class SACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.sinhkorn_caps_attn = BilinearSparseRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     out_d_capsules=out_d_capsules, seed=seed, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
                                                      temperature = 0.75,
                                                         non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
                                                         use_simple_sort_net = False)
@@ -546,8 +554,9 @@ class RandomInitBACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp, seed):
         super(RandomInitBACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -559,7 +568,7 @@ class RandomInitBACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.bilinear_attn = BilinearRandomInitRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     out_d_capsules=out_d_capsules, seed=seed,matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
                                                      temperature = 0.75,
                                                     non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
                                                     use_simple_sort_net = False)
@@ -595,8 +604,9 @@ class RandomInitBACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, matrix_pose, dp, seed, padding=None, coordinate_add=False):
         super(RandomInitBACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -612,7 +622,7 @@ class RandomInitBACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.bilinear_attn = BilinearRandomInitRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     out_d_capsules=out_d_capsules,seed=seed, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
                                                      temperature = 0.75,
                                                         non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
                                                         use_simple_sort_net = False)
@@ -668,8 +678,9 @@ class BACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp, seed):
         super(BACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -681,7 +692,7 @@ class BACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.bilinear_attn = BilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     out_d_capsules=out_d_capsules, seed=seed,matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
                                                      temperature = 0.75,
                                                     non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
                                                     use_simple_sort_net = False)
@@ -717,8 +728,9 @@ class BACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, matrix_pose, dp, seed, padding=None, coordinate_add=False):
         super(BACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -734,7 +746,7 @@ class BACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.bilinear_attn = BilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     out_d_capsules=out_d_capsules,seed=seed, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
                                                      temperature = 0.75,
                                                         non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
                                                         use_simple_sort_net = False)
@@ -785,8 +797,9 @@ class MultiHeadBACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, num_heads, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, num_heads, matrix_pose, dp, seed):
         super(MultiHeadBACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -798,7 +811,7 @@ class MultiHeadBACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.bilinear_attn = MultiHeadBilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     out_d_capsules=out_d_capsules,seed=seed, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
                                                      temperature = 0.75,num_heads=num_heads,
                                                     non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
                                                     use_simple_sort_net = False)
@@ -834,8 +847,9 @@ class MultiHeadBACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, num_heads, matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, num_heads, matrix_pose, dp, seed, padding=None, coordinate_add=False):
         super(MultiHeadBACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -851,7 +865,7 @@ class MultiHeadBACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.bilinear_attn = MultiHeadBilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     out_d_capsules=out_d_capsules, seed=seed,matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
                                                      num_heads=num_heads, temperature = 0.75,
                                                         non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
                                                         use_simple_sort_net = False)
@@ -900,8 +914,9 @@ class BVACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp, seed):
         super(BVACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -913,7 +928,7 @@ class BVACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.bilinear_attn = BilinearVectorRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     out_d_capsules=out_d_capsules,seed=seed, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
                                                      temperature = 0.75,
                                                     non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
                                                     use_simple_sort_net = False)
@@ -949,8 +964,9 @@ class BVACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, matrix_pose, dp,seed, padding=None, coordinate_add=False):
         super(BVACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -966,7 +982,7 @@ class BVACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.bilinear_attn = BilinearVectorRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     out_d_capsules=out_d_capsules, seed=seed, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
                                                      temperature = 0.75,
                                                         non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
                                                         use_simple_sort_net = False)
@@ -1023,8 +1039,9 @@ class DBACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp, seed):
         super(DBACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1036,7 +1053,7 @@ class DBACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.dynamicbilinear_attn = DynamicBilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
+                                                     out_d_capsules=out_d_capsules, seed=seed, matrix_pose=self.matrix_pose, layer_type='FC', kernel_size=1,
                                                      temperature = 0.75,
                                                     non_permutative = True, sinkhorn_iter = 7, n_sortcut = 2, dropout = 0., current_bucket_size = self.in_n_capsules//8,
                                                     use_simple_sort_net = False)
@@ -1072,8 +1089,9 @@ class DBACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, matrix_pose, dp,seed, padding=None, coordinate_add=False):
         super(DBACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1089,7 +1107,7 @@ class DBACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.dynamicbilinear_attn = DynamicBilinearRouting(next_bucket_size=self.out_n_capsules, in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
+                                                     out_d_capsules=out_d_capsules,seed=seed, matrix_pose=self.matrix_pose, layer_type='conv', kernel_size=kernel_size,
                                                      temperature = 0.75,
                                                         non_permutative = True, sinkhorn_iter = 7, n_sortcut = 1, dropout = 0., current_bucket_size = self.in_n_capsules,
                                                         use_simple_sort_net = False)
@@ -1173,8 +1191,9 @@ class DRCapsuleFC(nn.Module):
     except that kernal size=1 everywhere. 
     '''
 
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, matrix_pose, dp, seed):
         super(DRCapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1286,9 +1305,10 @@ class DRCapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, matrix_pose, dp, seed, padding=None, coordinate_add=False):
 
         super(DRCapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1435,8 +1455,9 @@ class LACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, input_img_size, output_img_size,multi_transforms, kernel_transformation, hidden_dim, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, input_img_size, output_img_size,multi_transforms, kernel_transformation, hidden_dim, matrix_pose, dp, seed):
         super(LACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules # This is n_caps * h_in * w_in
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1450,7 +1471,7 @@ class LACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.linformer_attention = LocalLinformerProjection(in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', input_img_size = input_img_size, output_img_size = output_img_size,
+                                                     out_d_capsules=out_d_capsules, seed=seed,matrix_pose=self.matrix_pose, layer_type='FC', input_img_size = input_img_size, output_img_size = output_img_size,
                                                     multi_transforms=multi_transforms, kernel_transformation=kernel_transformation,hidden_dim = hidden_dim, kernel_size=1, dropout = 0.)
 
     
@@ -1485,8 +1506,9 @@ class LACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, input_img_size, output_img_size, multi_transforms, kernel_transformation, hidden_dim,matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, input_img_size, output_img_size, multi_transforms, kernel_transformation, hidden_dim,matrix_pose, dp,seed, padding=None, coordinate_add=False):
         super(LACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1504,7 +1526,7 @@ class LACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.linformer_attention = LocalLinformerProjection(in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', input_img_size = input_img_size, output_img_size = output_img_size, 
+                                                     out_d_capsules=out_d_capsules, seed=seed,matrix_pose=self.matrix_pose, layer_type='conv', input_img_size = input_img_size, output_img_size = output_img_size, 
                                                      multi_transforms=multi_transforms, kernel_transformation=kernel_transformation, hidden_dim=hidden_dim, kernel_size=kernel_size, dropout = 0.)
 
     def extra_repr(self):
@@ -1561,8 +1583,9 @@ class MultiHeadLACapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
     """
-    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, input_img_size, output_img_size, num_heads, multi_transforms, kernel_transformation,hidden_dim, matrix_pose, dp):
+    def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, input_img_size, output_img_size, num_heads, multi_transforms, kernel_transformation,hidden_dim, matrix_pose, dp, seed):
         super(MultiHeadLACapsuleFC, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules # This is n_caps * h_in * w_in
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1576,7 +1599,7 @@ class MultiHeadLACapsuleFC(nn.Module):
         self.scale = 1. / (out_d_capsules ** 0.5)
 
         self.linformer_attention = MultiHeadLocalLinformerProjection(in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='FC', input_img_size = input_img_size, output_img_size = output_img_size,
+                                                     out_d_capsules=out_d_capsules,seed=seed, matrix_pose=self.matrix_pose, layer_type='FC', input_img_size = input_img_size, output_img_size = output_img_size,
                                                     kernel_transformation=kernel_transformation,num_heads= num_heads, multi_transforms=multi_transforms, hidden_dim = hidden_dim, kernel_size=1, dropout = 0.)
 
     
@@ -1611,8 +1634,9 @@ class MultiHeadLACapsuleCONV(nn.Module):
     TBD
     """
     def __init__(self, in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 
-                 kernel_size, stride, input_img_size, output_img_size, num_heads,multi_transforms, kernel_transformation,hidden_dim,matrix_pose, dp, padding=None, coordinate_add=False):
+                 kernel_size, stride, input_img_size, output_img_size, num_heads,multi_transforms, kernel_transformation,hidden_dim,matrix_pose, dp, seed,padding=None, coordinate_add=False):
         super(MultiHeadLACapsuleCONV, self).__init__()
+        seed_torch(seed)
         self.in_n_capsules = in_n_capsules
         self.in_d_capsules = in_d_capsules
         self.out_n_capsules = out_n_capsules
@@ -1631,7 +1655,7 @@ class MultiHeadLACapsuleCONV(nn.Module):
         self.drop = nn.Dropout(self.dropout_rate)
 
         self.linformer_attention = MultiHeadLocalLinformerProjection(in_n_capsules=in_n_capsules, in_d_capsules=in_d_capsules, out_n_capsules=out_n_capsules, 
-                                                     out_d_capsules=out_d_capsules, matrix_pose=self.matrix_pose, layer_type='conv', input_img_size = input_img_size, output_img_size = output_img_size, 
+                                                     out_d_capsules=out_d_capsules, seed=seed,matrix_pose=self.matrix_pose, layer_type='conv', input_img_size = input_img_size, output_img_size = output_img_size, 
                                                      multi_transforms=multi_transforms,kernel_transformation=kernel_transformation,num_heads= num_heads, hidden_dim=hidden_dim, kernel_size=kernel_size, dropout = 0.)
 
     def extra_repr(self):

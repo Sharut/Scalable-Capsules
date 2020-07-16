@@ -52,19 +52,19 @@ class CapsModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'], seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100' or "NIST" in dataset or dataset == 'SVHN':
               print("Using standard ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
         
         print("Precaps: ", profile_macs(self.pre_caps, torch.randn(1,3,32,32)))
        
@@ -105,6 +105,7 @@ class CapsModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False
                             )
                 )
@@ -134,7 +135,8 @@ class CapsModel(nn.Module):
                           out_n_capsules=params['capsules'][i]['num_caps'], 
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed,
                           )
                 )
                 x_input = torch.randn(1,in_n_caps,1,in_d_caps)
@@ -161,7 +163,8 @@ class CapsModel(nn.Module):
                   out_n_capsules=params['class_capsules']['num_caps'], 
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed,
                   )
         )
         
@@ -275,19 +278,19 @@ class CapsSAModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'], seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
         
         ## Primary Capsule Layer (a single CNN)
         self.pc_layer = nn.Conv2d(in_channels=params['primary_capsules']['input_dim'],
@@ -319,6 +322,7 @@ class CapsSAModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -341,7 +345,8 @@ class CapsSAModel(nn.Module):
                           out_n_capsules=params['capsules'][i]['num_caps'], 
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )                                                   
         
@@ -364,7 +369,8 @@ class CapsSAModel(nn.Module):
                   out_n_capsules=params['class_capsules']['num_caps'], 
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
         
@@ -465,19 +471,19 @@ class CapsRandomInitBAModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'], seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
         
         ## Primary Capsule Layer (a single CNN)
         self.pc_layer = nn.Conv2d(in_channels=params['primary_capsules']['input_dim'],
@@ -509,6 +515,7 @@ class CapsRandomInitBAModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -531,7 +538,8 @@ class CapsRandomInitBAModel(nn.Module):
                           out_n_capsules=params['capsules'][i]['num_caps'], 
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )                                                   
         
@@ -554,7 +562,8 @@ class CapsRandomInitBAModel(nn.Module):
                   out_n_capsules=params['class_capsules']['num_caps'], 
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
         
@@ -658,19 +667,19 @@ class CapsBAModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'], seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
         
         print("Precaps: ", profile_macs(self.pre_caps, torch.randn(1,3,32,32)))
         ## Primary Capsule Layer (a single CNN)
@@ -705,6 +714,7 @@ class CapsBAModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -730,7 +740,8 @@ class CapsBAModel(nn.Module):
                           out_n_capsules=params['capsules'][i]['num_caps'], 
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )                                                   
                 x_input = torch.randn(1,in_n_caps,1,in_d_caps)
@@ -755,7 +766,8 @@ class CapsBAModel(nn.Module):
                   out_n_capsules=params['class_capsules']['num_caps'], 
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
         
@@ -869,19 +881,19 @@ class CapsMultiHeadBAModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'], seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
         
         print("Precaps: ", profile_macs(self.pre_caps, torch.randn(1,3,32,32)))
         ## Primary Capsule Layer (a single CNN)
@@ -917,6 +929,7 @@ class CapsMultiHeadBAModel(nn.Module):
                                 num_heads = params['capsules'][i]['num_heads'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -943,7 +956,8 @@ class CapsMultiHeadBAModel(nn.Module):
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           num_heads = params['capsules'][i]['num_heads'],
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )                                                   
                 x_input = torch.randn(1,in_n_caps,1,in_d_caps)
@@ -969,7 +983,8 @@ class CapsMultiHeadBAModel(nn.Module):
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   num_heads = params['class_capsules']['num_heads'],
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
         
@@ -1079,19 +1094,19 @@ class CapsBVAModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'], seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset:
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'], seed=seed)
         
         ## Primary Capsule Layer (a single CNN)
         self.pc_layer = nn.Conv2d(in_channels=params['primary_capsules']['input_dim'],
@@ -1123,6 +1138,7 @@ class CapsBVAModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -1145,7 +1161,8 @@ class CapsBVAModel(nn.Module):
                           out_n_capsules=params['capsules'][i]['num_caps'], 
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )                                                   
         
@@ -1168,7 +1185,8 @@ class CapsBVAModel(nn.Module):
                   out_n_capsules=params['class_capsules']['num_caps'], 
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
         
@@ -1269,19 +1287,19 @@ class CapsDBAModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'],seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset:
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
         
         ## Primary Capsule Layer (a single CNN)
         self.pc_layer = nn.Conv2d(in_channels=params['primary_capsules']['input_dim'],
@@ -1313,6 +1331,7 @@ class CapsDBAModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -1335,7 +1354,8 @@ class CapsDBAModel(nn.Module):
                           out_n_capsules=params['capsules'][i]['num_caps'], 
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )                                                   
         
@@ -1358,7 +1378,8 @@ class CapsDBAModel(nn.Module):
                   out_n_capsules=params['class_capsules']['num_caps'], 
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
         
@@ -1444,19 +1465,19 @@ class CapsDRModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'],seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100'or "NIST" in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
         
         ## Primary Capsule Layer (a single CNN)
         self.pc_layer = nn.Conv2d(in_channels=params['primary_capsules']['input_dim'],
@@ -1488,6 +1509,7 @@ class CapsDRModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -1510,7 +1532,8 @@ class CapsDRModel(nn.Module):
                           out_n_capsules=params['capsules'][i]['num_caps'], 
                           out_d_capsules=params['capsules'][i]['caps_dim'], 
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )                                                   
         
@@ -1533,7 +1556,8 @@ class CapsDRModel(nn.Module):
                   out_n_capsules=params['class_capsules']['num_caps'], 
                   out_d_capsules=params['class_capsules']['caps_dim'], 
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
         
@@ -1634,19 +1658,19 @@ class CapsBilinearLocalLinformer(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'],seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100' or 'NIST' in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
         
         
         
@@ -1694,6 +1718,7 @@ class CapsBilinearLocalLinformer(nn.Module):
                                 hidden_dim= params['capsules'][i]['hidden_dim'],
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -1732,7 +1757,8 @@ class CapsBilinearLocalLinformer(nn.Module):
                           kernel_transformation=kernel_transformation,
                           hidden_dim= params['capsules'][i]['hidden_dim'],
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )
 
@@ -1776,7 +1802,8 @@ class CapsBilinearLocalLinformer(nn.Module):
                   kernel_transformation=kernel_transformation,
                   hidden_dim= params['class_capsules']['hidden_dim'],
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
 
@@ -1890,19 +1917,19 @@ class CapsMultiHeadBilinearLocalLinformer(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'],seed=seed)
         elif backbone == 'resnet':
             # Ouputs 16 X 16 X 128 dim
             if dataset == 'CIFAR10' or dataset == 'CIFAR100' or 'NIST' in dataset or dataset == 'SVHN':
               print("Using CIFAR backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
             else:
               print("Using New ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
         
         
         
@@ -1951,6 +1978,7 @@ class CapsMultiHeadBilinearLocalLinformer(nn.Module):
                                 hidden_dim= params['capsules'][i]['hidden_dim'],
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False,
                                 padding=params['capsules'][i].get('padding', None)
                             )
@@ -1990,7 +2018,8 @@ class CapsMultiHeadBilinearLocalLinformer(nn.Module):
                           num_heads= params['capsules'][i]['num_heads'],
                           hidden_dim= params['capsules'][i]['hidden_dim'],
                           matrix_pose=params['capsules'][i]['matrix_pose'],
-                          dp=dp
+                          dp=dp,
+                          seed=seed
                           )
                 )
 
@@ -2035,7 +2064,8 @@ class CapsMultiHeadBilinearLocalLinformer(nn.Module):
                   kernel_transformation = kernel_transformation,
                   hidden_dim= params['class_capsules']['hidden_dim'],
                   matrix_pose=params['class_capsules']['matrix_pose'],
-                  dp=dp
+                  dp=dp,
+                  seed=seed
                   )
         )
 
@@ -2113,12 +2143,7 @@ class CapsMultiHeadBilinearLocalLinformer(nn.Module):
 
 
 
-
-
-
-
 # Global Linformer (only FC, No Convolutions)
-
 # Capsule model
 class CapsBilinearGlobalLinformerModel(nn.Module):
     def __init__(self,
@@ -2150,19 +2175,19 @@ class CapsBilinearGlobalLinformerModel(nn.Module):
                                             params['backbone']['output_dim'],
                                             params['backbone']['kernel_size'], 
                                             params['backbone']['stride'],
-                                            params['backbone']['padding'])
+                                            params['backbone']['padding'],seed=seed)
         
         elif backbone == 'resnet':
             if dataset == 'CIFAR10' or dataset == 'CIFAR100':
               print("Using standard ResNet Backbone")
               self.pre_caps = layers.resnet_backbone_cifar(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
             else:
               print("Using ImageNet Backbone")
               self.pre_caps = layers.resnet_backbone_imagenet(params['backbone']['input_dim'], 
                                              params['backbone']['output_dim'],
-                                             params['backbone']['stride'])
+                                             params['backbone']['stride'],seed=seed)
         
         
         ## Primary Capsule Layer (a single CNN)
@@ -2199,6 +2224,7 @@ class CapsBilinearGlobalLinformerModel(nn.Module):
                                 stride=params['capsules'][i]['stride'], 
                                 matrix_pose=params['capsules'][i]['matrix_pose'], 
                                 dp=dp,
+                                seed=seed,
                                 coordinate_add=False
                             )
                 )
@@ -2241,6 +2267,7 @@ class CapsBilinearGlobalLinformerModel(nn.Module):
                           parameter_sharing = params['capsules'][i]['parameter_sharing'],
                           matrix_pose=params['capsules'][i]['matrix_pose'],
                           dp=dp,
+                          seed=seed
                           )
                 )
                                                                
@@ -2280,7 +2307,8 @@ class CapsBilinearGlobalLinformerModel(nn.Module):
                     parent_padding=params['capsules'][i]['parent_padding'],
                     parameter_sharing = params['class_capsules']['parameter_sharing'],
                     matrix_pose=params['class_capsules']['matrix_pose'],
-                    dp=dp
+                    dp=dp,
+                    seed=seed
                     )
         )
         
