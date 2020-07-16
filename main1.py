@@ -61,7 +61,7 @@ parser.add_argument('--mixup_alpha', default=1, type=int, help='mixup interpolat
 parser.add_argument('--test_bs', default=100, type=int, help='Batch Size for test')
 parser.add_argument('--seed', default=0, type=int, help='Random seed value')
 
-parser.add_argument('--accumulation_steps', default=2, type=float, help='Number of gradeitn accumulation steps')
+parser.add_argument('--accumulation_steps', default=2, type=float, help='Number of gradient accumulation steps')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate: 0.1 for SGD')
 parser.add_argument('--gamma', default=0.1, type=float, help='learning rate decay: 0.1')
 parser.add_argument('--dp', default=0.0, type=float, help='dropout rate')
