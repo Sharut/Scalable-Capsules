@@ -13,8 +13,6 @@ from torchvision.datasets import SVHN
 
 from Custom_datasets.DataDiverseMultiMNIST import DiverseMultiMNIST
 from Custom_datasets.DataMNIST import SimpleMNIST
-from Custom_datasets.DataExpandedMNIST import ExpandedMNIST
-from Custom_datasets.DataAffNIST import AffNIST
 from utils import seed_torch
 from torchvision import datasets
 from Custom_datasets.DataAffNISTv2 import AffNISTv2
@@ -48,19 +46,6 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
 		num_class=10
 		image_dim_size = 28
 
-	elif name == 'AffineMNIST':
-		print("Applying 28*28 Affine MNIST transforms")
-		transform = transforms.Compose([transforms.RandomAffine(degrees=30, translate=(0.1,0.1)),transforms.Grayscale(3), transforms.ToTensor()])
-		
-		trainset = []
-		testset = datasets.MNIST(root='../data/', train=False, download=True, transform=transform)
-		num_class=10
-		image_dim_size = 28
-
-		
-
-
-
 	elif name == 'DiverseMultiMNIST':
 		DATAPATH = '../data/DiverseMultiMNIST/'
 		print("Applying Diverse Multi MNIST transforms")
@@ -89,26 +74,6 @@ def get_dataset(name, seed, train_translation_rotation_list=None, test_translati
 		num_class=10
 		image_dim_size = 36
 
-
-	elif name == 'ExpandedMNIST':
-		print("Applying Expanded MNIST transforms")
-		trainset = ExpandedMNIST(root='../data', train=True, transformation = None)
-		testset = ExpandedMNIST(root='../data', train=False, transformation = None)
-		num_class=10
-		image_dim_size = 40
-
-	elif name == 'AffNIST':
-		print("Applying Affine-MNIST transforms")
-		transform_diverseMNIST = transforms.Compose([
-				transforms.ToPILImage(),
-				transforms.Pad(4), 
-				transforms.ToTensor(),
-			])
-		# trainset = AffNIST(root='../data', train=True)
-		trainset=[]
-		testset = AffNIST(root='../data/AffNIST', train=False)
-		num_class=10
-		image_dim_size = 40
 
 	elif name == 'FashionMNIST':
 		print("Applying Fashion-MNIST transforms")

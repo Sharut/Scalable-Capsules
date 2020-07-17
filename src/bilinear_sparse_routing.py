@@ -1943,7 +1943,7 @@ def squash(input_tensor):
 
 
 
-# DYANMIC BILINEAR ROUTING
+# DYANMIC ROUTING +  BILINEAR ROUTING ( DOESNT CONVERGE)
 class DynamicBilinearRouting(nn.Module):
     def __init__(self, next_bucket_size, 
                 in_n_capsules, in_d_capsules, out_n_capsules, out_d_capsules, 

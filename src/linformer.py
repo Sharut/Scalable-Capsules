@@ -1764,6 +1764,7 @@ class BilinearGlobalLinformerRandomInitCapsuleFC(nn.Module):
 
 # Global linformer Only FC type layers
 #### Bilinear Linformer Capsule Layer ####
+# DONT USE, THIS IS WRONG
 class BilinearGlobalLinformerRelativeEmbeddingsCapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD
@@ -1961,6 +1962,8 @@ class BilinearGlobalLinformerRelativeEmbeddingsCapsuleFC(nn.Module):
 # DEBUGG VERSION WHERE CONV = MAT MULT for transformation
 # Global linformer Only FC type layers
 #### Bilinear Linformer Capsule Layer ####
+
+# latest version of the code
 class BilinearGlobalLinformerDebugCapsuleFC(nn.Module):
     r"""Applies as a capsule fully-connected layer.
     TBD

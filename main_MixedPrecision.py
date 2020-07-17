@@ -117,7 +117,8 @@ if args.model=='default':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
 elif args.model=='sinkhorn':
     net = capsule_model.CapsSAModel(image_dim_size,
                         params,
@@ -125,7 +126,104 @@ elif args.model=='sinkhorn':
                         args.backbone,
                         args.dp,
                         args.num_routing,
-                        sequential_routing=args.sequential_routing)
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='BilinearRandomInit':
+    net = capsule_model.CapsRandomInitBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+
+elif args.model=='bilinear':
+    net = capsule_model.CapsBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='HintonDynamic':
+    print("Using Sara Sabour's Dynamic Routing")
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDRModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='DynamicBilinear':
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+    
+elif args.model=='MultiHeadBilinear':
+    net = capsule_model.CapsMultiHeadBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        multi_transforms  = args.multi_transforms,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+
+if args.model=='LocalLinformer':
+    net = capsule_model.CapsBilinearLocalLinformer(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        multi_transforms  = args.multi_transforms,
+                        kernel_transformation = args.kernel_transformation,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+
+if args.model=='MultiHeadLocalLinformer':
+    net = capsule_model.CapsMultiHeadBilinearLocalLinformer(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        kernel_transformation = args.kernel_transformation,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+
+if args.model=='GlobalLinformer':
+    net = capsule_model.CapsBilinearGlobalLinformerModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='resnet18':
+    net = torchvision.models.resnet18(pretrained=True) 
+    num_ftrs = net.fc.in_features
+    net.fc = nn.Linear(num_ftrs, num_class)
 
 # +
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)

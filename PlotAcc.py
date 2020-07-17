@@ -6,7 +6,7 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='Training Capsules using Inverted Dot-Product Attention Routing')
-parser.add_argument('--model', default='', type=str, help='Absolute Path of model')
+parser.add_argument('--model', default='', type=str, help='Absolute Path of model where the checkpoint is saved')
 
 args = parser.parse_args()
 

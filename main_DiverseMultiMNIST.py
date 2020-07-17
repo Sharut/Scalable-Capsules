@@ -43,6 +43,7 @@ parser.add_argument('--debug', action='store_true',
                     help='use debug mode (without saving to a directory)')
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')
 parser.add_argument('--kernel_transformation', action='store_true', help='tranform each 3*3 to 4 tranformation with local linformer')
+parser.add_argument('--multi_transforms', action='store_true', help='tranform 288->128 using this number of matrices ( say 4, then 4 matrices to 32 dimension and then concatenate before attention')
 
 parser.add_argument('--train_bs', default=128, type=int, help='Batch Size for train')
 parser.add_argument('--test_bs', default=128, type=int, help='Batch Size for test')
@@ -121,6 +122,7 @@ elif args.model=='BilinearRandomInit':
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
+
 elif args.model=='bilinear':
     net = capsule_model.CapsBAModel(image_dim_size,
                         params,
@@ -131,6 +133,29 @@ elif args.model=='bilinear':
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
+elif args.model=='HintonDynamic':
+    print("Using Sara Sabour's Dynamic Routing")
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDRModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='DynamicBilinear':
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+    
 elif args.model=='MultiHeadBilinear':
     net = capsule_model.CapsMultiHeadBAModel(image_dim_size,
                         params,
@@ -138,6 +163,7 @@ elif args.model=='MultiHeadBilinear':
                         args.backbone,
                         args.dp,
                         args.num_routing,
+                        multi_transforms  = args.multi_transforms,
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
@@ -149,12 +175,14 @@ if args.model=='LocalLinformer':
                         args.backbone,
                         args.dp,
                         args.num_routing,
+                        multi_transforms  = args.multi_transforms,
                         kernel_transformation = args.kernel_transformation,
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
-if args.model=='MultipleLocalLinformer':
-    net = capsule_model.CapsMultipleTransformationsBilinearLocalLinformer(image_dim_size,
+
+if args.model=='MultiHeadLocalLinformer':
+    net = capsule_model.CapsMultiHeadBilinearLocalLinformer(image_dim_size,
                         params,
                         args.dataset,
                         args.backbone,

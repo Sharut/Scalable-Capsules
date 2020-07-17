@@ -40,6 +40,9 @@ parser.add_argument('--num_workers', default=1, type=int, help='number of worker
 parser.add_argument('--config_path', default='./config_linformer/Local/CIFAR10/resnet_backbone_CIFAR10_capsdim16.json', type=str, help='path of the config')
 parser.add_argument('--kernel_transformation', action='store_true', help='not using concurrent_routing')
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')
+parser.add_argument('--kernel_transformation', action='store_true', help='tranform each 3*3 to 4 tranformation with local linformer')
+parser.add_argument('--multi_transforms', action='store_true', help='tranform 288->128 using this number of matrices ( say 4, then 4 matrices to 32 dimension and then concatenate before attention')
+
 parser.add_argument('--seed', default=12345, type=int, help='Random seed value')
 parser.add_argument('--image_dim_size', default=32, type=int, help='image dimension')
 

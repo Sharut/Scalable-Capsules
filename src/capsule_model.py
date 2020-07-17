@@ -1257,6 +1257,8 @@ class CapsBVAModel(nn.Module):
 
 
 # Capsule model with bilinear routing with dynamic routing
+# DIVERGED, REPORTED IN PAPER
+
 class CapsDBAModel(nn.Module):
     def __init__(self,
                  image_dim_size,
@@ -1435,6 +1437,7 @@ class CapsDBAModel(nn.Module):
 
 
 # Capsule model with DYNAMIC ROUTING by Sara Sabour and Hinton
+# CONVERGED, REPORTED IN PAPER
 class CapsDRModel(nn.Module):
     def __init__(self,
                  image_dim_size,

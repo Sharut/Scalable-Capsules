@@ -11,6 +11,10 @@
 
 # resnet_backbone_FashionMNIST_capsdim64v3
 
+
+
+# THIS IS THE MAIN FILE FOR CIFAR100-CIFAR10 experiments
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,6 +29,7 @@ from torch.autograd import Variable
 #
 import torchvision
 import torchvision.transforms as transforms
+
 
 import os
 import argparse
@@ -52,6 +57,7 @@ parser.add_argument('--debug', action='store_true',
                     help='use debug mode (without saving to a directory)')
 parser.add_argument('--sequential_routing', action='store_true', help='not using concurrent_routing')
 parser.add_argument('--kernel_transformation', action='store_true', help='tranform each 3*3 to 4 tranformation with local linformer')
+parser.add_argument('--multi_transforms', action='store_true', help='tranform 288->128 using this number of matrices ( say 4, then 4 matrices to 32 dimension and then concatenate before attention')
 
 parser.add_argument('--train_bs', default=64, type=int, help='Batch Size for train')
 parser.add_argument('--mixup', default=False, type=bool, help='Mixup Augmentation')
@@ -60,7 +66,7 @@ parser.add_argument('--mixup_alpha', default=1, type=int, help='mixup interpolat
 parser.add_argument('--test_bs', default=100, type=int, help='Batch Size for test')
 parser.add_argument('--seed', default=0, type=int, help='Random seed value')
 
-parser.add_argument('--accumulation_steps', default=2, type=float, help='Number of gradeitn accumulation steps')
+parser.add_argument('--accumulation_steps', default=2, type=float, help='Number of gradient accumulation steps')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate: 0.1 for SGD')
 parser.add_argument('--gamma', default=0.1, type=float, help='learning rate decay: 0.1')
 parser.add_argument('--dp', default=0.0, type=float, help='dropout rate')
@@ -140,6 +146,7 @@ elif args.model=='BilinearRandomInit':
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
+
 elif args.model=='bilinear':
     net = capsule_model.CapsBAModel(image_dim_size,
                         params,
@@ -147,6 +154,40 @@ elif args.model=='bilinear':
                         args.backbone,
                         args.dp,
                         args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='HintonDynamic':
+    print("Using Sara Sabour's Dynamic Routing")
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDRModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+
+elif args.model=='DynamicBilinear':
+    assert args.sequential_routing == True
+    net = capsule_model.CapsDBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        sequential_routing=args.sequential_routing,
+                        seed = args.seed)
+    
+elif args.model=='MultiHeadBilinear':
+    net = capsule_model.CapsMultiHeadBAModel(image_dim_size,
+                        params,
+                        args.dataset,
+                        args.backbone,
+                        args.dp,
+                        args.num_routing,
+                        multi_transforms  = args.multi_transforms,
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
@@ -158,17 +199,20 @@ if args.model=='LocalLinformer':
                         args.backbone,
                         args.dp,
                         args.num_routing,
+                        multi_transforms  = args.multi_transforms,
                         kernel_transformation = args.kernel_transformation,
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
-if args.model=='MultipleLocalLinformer':
-    net = capsule_model.CapsMultipleTransformationsBilinearLocalLinformer(image_dim_size,
+
+if args.model=='MultiHeadLocalLinformer':
+    net = capsule_model.CapsMultiHeadBilinearLocalLinformer(image_dim_size,
                         params,
                         args.dataset,
                         args.backbone,
                         args.dp,
                         args.num_routing,
+                        kernel_transformation = args.kernel_transformation,
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
@@ -183,7 +227,11 @@ if args.model=='GlobalLinformer':
                         sequential_routing=args.sequential_routing,
                         seed = args.seed)
 
-
+elif args.model=='resnet18':
+    net = torchvision.models.resnet18(pretrained=True) 
+    num_ftrs = net.fc.in_features
+    net.fc = nn.Linear(num_ftrs, num_class)
+    
 # +
 if(args.optimizer=="SGD"):
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
@@ -237,8 +285,9 @@ capsdim = args.config_path.split('capsdim')[1].split(".")[0] if 'capsdim' in arg
 print(capsdim)
 
 
-save_dir_name = 'Invert_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) +  '_epochs_'+ str(args.total_epochs) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_routing_'+str(args.sequential_routing)  + '_alpha_' +str(args.mixup_alpha) + '_mixup_'+str(args.mixup)+'_warmup_'+str(args.warmup)+ '_kernel_transformation_' + str(args.kernel_transformation)+'_seed_'+str(args.seed)
+save_dir_name = 'Invert_model_' + str(args.model)+ '_dataset_' + str(args.dataset) + '_batch_' +str(args.train_bs)+'_acc_'+str(args.accumulation_steps) + '_optimizer_' +str(args.optimizer) +'_scheduler_' + lr_scheduler_name +'_num_routing_' + str(args.num_routing) + '_backbone_' + args.backbone + '_config_'+capsdim + '_sequential_'+str(args.sequential_routing)  + '_alpha_' +str(args.mixup_alpha) + '_mixup_'+str(args.mixup)+'_warmup_'+str(args.warmup)+ '_KernelTransform_' + str(args.kernel_transformation)+ '_MultiTransforms_'+ str(args.multi_transforms)+'_seed_'+str(args.seed)
 print(save_dir_name)
+
 
 if 'Linformer' in args.model:
     print("Linformer directory it is")
