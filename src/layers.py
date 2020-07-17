@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
-from .bilinear_sparse_routing import BilinearSparseRouting,BilinearVectorRouting, BilinearRouting, DynamicBilinearRouting, BilinearRandomInitRouting, MultiHeadBilinearRouting
+from .bilinear_sparse_routing import BilinearSparseRouting, BilinearRouting, DynamicBilinearRouting, BilinearRandomInitRouting, MultiHeadBilinearRouting
 from .linformer import LocalLinformerProjection, MithunSirLocalLinformerProjection, BilinearProjectionWithEmbeddings, MultiHeadLocalLinformerProjection
 from utils import seed_torch
 
